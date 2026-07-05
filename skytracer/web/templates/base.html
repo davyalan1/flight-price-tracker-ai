@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Skytracer{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1><a href="/">Skytracer</a></h1>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/settings">Settings</a>
+    {% if logged_in %}<a href="/logout">Log out</a>{% endif %}
+  </nav>
+</header>
+<main>
+  {% block content %}{% endblock %}
+</main>
+<footer>Skytracer — self-hosted flight price tracker</footer>
+</body>
+</html>

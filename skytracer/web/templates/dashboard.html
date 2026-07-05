@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Skytracer{% endblock %}
+{% block content %}
+{% if not routes %}
+<div class="card">
+  <h2>Tracked routes</h2>
+  <p class="hint">No observations yet — the first poll hasn't run, or hasn't found a fare.</p>
+</div>
+{% else %}
+<div class="route-grid">
+  {% for r in routes %}
+  <a class="route-card" href="/route/{{ r.route_key }}">
+    <span class="eyebrow">{{ r.route_key }}</span>
+    <div class="price-now num">{{ r.currency }} {{ "%.2f"|format(r.current_price) }}</div>
+    <div class="route-meta">
+      <span class="trend-{{ r.trend }}">
+        {% if r.trend == 'down' %}&darr; falling{% elif r.trend == 'up' %}&uarr; rising{% else %}&rarr; steady{% endif %}
+      </span>
+      <span>low {{ r.currency }} {{ "%.2f"|format(r.all_time_low) }}</span>
+    </div>
+    <div class="route-meta">
+      <span>{{ r.source }}</span>
+      <span>{{ r.last_updated }}</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,18 @@
+[Unit]
+Description=Skytracer conversational Telegram bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=skytracer
+Group=skytracer
+Environment=SKYTRACER_CONFIG=/etc/skytracer/config.toml
+Environment=SKYTRACER_DB=/var/lib/skytracer/skytracer.db
+WorkingDirectory=/opt/skytracer
+ExecStart=/opt/skytracer/venv/bin/skytracer run-telegram-bot
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

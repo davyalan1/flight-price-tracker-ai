@@ -1,0 +1,271 @@
+/* Skytracer — "departure board" visual language: dusk-navy + amber, tabular
+   mono numerals for fares (split-flap board feel), a dashed ticket-stub
+   perforation as the one recurring signature motif. Ships with zero JS or
+   external fonts by default — the interactive map toggle on
+   route_detail.html is the one deliberate, opt-in exception, loaded only
+   when a visitor asks for it. */
+
+:root {
+  color-scheme: light dark;
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --text: #10151d;
+  --muted: #5b6472;
+  --border: #dfe3e9;
+  --accent: #c97a1e;       /* departure-board amber */
+  --sky: #2f5d8a;          /* secondary: altitude blue, links/trend/map */
+  --danger: #b3261e;
+  --ok: #1a7a4c;
+  --radius: 12px;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0f16;
+    --surface: #131a24;
+    --surface-raised: #171f2b;
+    --text: #eef1f6;
+    --muted: #93a0b2;
+    --border: #26303e;
+    --accent: #e2a04f;
+    --sky: #6fa8dd;
+    --danger: #ff6b60;
+    --ok: #4fd190;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.num, .price {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+}
+
+.eyebrow {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--space-1);
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+header h1 { font-size: 1.15rem; margin: 0; letter-spacing: 0.02em; }
+header h1 a { color: var(--text); text-decoration: none; }
+header h1 a::before { content: "\2708  "; }
+
+nav a {
+  margin-left: var(--space-4);
+  color: var(--sky);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+nav a:hover { text-decoration: underline; }
+
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--space-5);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.card h2 { margin-top: 0; font-size: 1rem; }
+
+label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-1);
+}
+
+input[type="text"], input[type="password"], input[type="number"], input[type="date"], select {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.checkbox-row input { width: auto; }
+.checkbox-row label { margin: 0; }
+
+.hint { font-size: 0.8rem; color: var(--muted); margin-top: var(--space-1); }
+
+button, .button {
+  display: inline-block;
+  background: var(--accent);
+  color: #191008;
+  border: none;
+  padding: 0.55rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+button.secondary, .button.secondary {
+  background: transparent;
+  color: var(--sky);
+  border: 1px solid var(--sky);
+}
+button:hover, .button:hover { filter: brightness(1.08); }
+@media (prefers-reduced-motion: no-preference) {
+  button, .button { transition: filter 0.15s ease; }
+}
+
+:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
+
+.actions-row { margin-top: var(--space-4); display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+.error { color: var(--danger); font-size: 0.85rem; margin-top: var(--space-1); }
+.flash-ok { color: var(--ok); }
+.flash-error { color: var(--danger); }
+.flash-banner {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: var(--space-4);
+  font-size: 0.9rem;
+  border: 1px solid var(--border);
+}
+
+.source-row, .notify-fields {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+  margin-top: var(--space-3);
+}
+.source-row:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+th, td {
+  text-align: left;
+  padding: 0.5rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+
+.masked { color: var(--muted); font-style: italic; }
+
+/* ---- Dashboard: route cards, responsive without a single media query ---- */
+.route-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+.route-card {
+  display: block;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  color: var(--text);
+  text-decoration: none;
+}
+.route-card:hover { border-color: var(--sky); }
+.route-card .route-name { font-weight: 700; margin-bottom: var(--space-3); }
+.route-card .price-now { font-size: 1.6rem; font-weight: 700; }
+.route-card .route-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-3);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.trend-down { color: var(--ok); }
+.trend-up { color: var(--danger); }
+.trend-flat { color: var(--muted); }
+
+/* ---- Route detail: top fares ("best fares right now") ---- */
+.fare-list { display: grid; gap: var(--space-3); }
+.fare-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+.fare-row:first-child { border-color: var(--accent); }
+.fare-rank { font-size: 0.75rem; color: var(--muted); width: 1.5rem; }
+.fare-price { font-size: 1.15rem; font-weight: 700; flex: 0 0 auto; min-width: 6.5rem; }
+.fare-detail { flex: 1 1 auto; color: var(--muted); font-size: 0.85rem; min-width: 10rem; }
+.fare-row .button { flex: 0 0 auto; }
+
+/* ---- Route map ---- */
+.route-map { width: 100%; height: auto; display: block; max-width: 100%; }
+.route-line { stroke: var(--sky); stroke-width: 2; stroke-dasharray: 4 3; }
+.route-dot { fill: var(--accent); }
+.route-label { fill: var(--muted); font-size: 11px; }
+.map-toggle-row { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); font-size: 0.85rem; }
+#interactive-map { width: 100%; height: 320px; border-radius: 8px; margin-top: var(--space-3); display: none; }
+#interactive-map.active { display: block; }
+
+/* ---- Alert-history timeline (CSS-only, no JS) ---- */
+.timeline { list-style: none; margin: 0; padding: 0 0 0 var(--space-4); border-left: 2px dashed var(--border); }
+.timeline li { position: relative; padding-bottom: var(--space-4); }
+.timeline li:last-child { padding-bottom: 0; }
+.timeline li::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--space-4) - 5px);
+  top: 0.3rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.timeline .t-price { font-weight: 700; }
+.timeline .t-meta { font-size: 0.8rem; color: var(--muted); }
+
+.price-chart { width: 100%; height: auto; display: block; }
+.chart-line { stroke: var(--sky); stroke-width: 2; }
+.chart-dot { fill: var(--accent); }
+
+footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: var(--space-6) 0 var(--space-4); }

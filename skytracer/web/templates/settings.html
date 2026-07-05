@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% block title %}Settings — Skytracer{% endblock %}
+{% block content %}
+
+{% if flash %}<div class="flash-banner {{ 'flash-error' if flash_error else 'flash-ok' }}">{{ flash }}</div>{% endif %}
+{% if errors.get('_general') %}
+  <div class="flash-banner flash-error">
+    {% for msg in errors['_general'] %}<div>{{ msg }}</div>{% endfor %}
+  </div>
+{% endif %}
+
+<form method="post" action="/settings">
+  <div class="card">
+    <h2>Trip</h2>
+    <label for="origin">Origin airport</label>
+    <input type="text" id="origin" name="trip.origin" value="{{ values.trip.origin }}" maxlength="3" required>
+    {% for msg in errors.get('trip.origin', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+
+    <label for="destination">Destination airport</label>
+    <input type="text" id="destination" name="trip.destination" value="{{ values.trip.destination }}" maxlength="3" required>
+    <div class="hint">3-letter IATA code, e.g. NRT = Narita, HND = Haneda</div>
+    {% for msg in errors.get('trip.destination', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+
+    <label for="adults">Adults</label>
+    <input type="number" id="adults" name="trip.adults" value="{{ values.trip.adults }}" min="1" required>
+    {% for msg in errors.get('trip.adults', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+
+    <label for="cabin">Cabin</label>
+    <select id="cabin" name="trip.cabin">
+      {% for choice in ['economy', 'premium_economy', 'business', 'first'] %}
+      <option value="{{ choice }}" {{ 'selected' if values.trip.cabin == choice else '' }}>{{ choice.replace('_', ' ') }}</option>
+      {% endfor %}
+    </select>
+    {% for msg in errors.get('trip.cabin', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+
+    <label for="currency">Currency</label>
+    <input type="text" id="currency" name="trip.currency" value="{{ values.trip.currency }}" maxlength="3" required>
+    {% for msg in errors.get('trip.currency', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+
+    <div class="checkbox-row">
+      <input type="radio" id="mode_fixed" name="trip.mode" value="fixed" {{ 'checked' if values.trip.fixed.enabled else '' }}>
+      <label for="mode_fixed">Fixed dates</label>
+    </div>
+    <label for="depart_date">Depart date</label>
+    <input type="date" id="depart_date" name="trip.fixed.depart_date" value="{{ values.trip.fixed.depart_date }}">
+    <label for="return_date">Return date (blank for one-way)</label>
+    <input type="date" id="return_date" name="trip.fixed.return_date" value="{{ values.trip.fixed.return_date }}">
+    {% for msg in errors.get('trip.fixed.depart_date', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    {% for msg in errors.get('trip.fixed.return_date', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+
+    <div class="checkbox-row" style="margin-top:1rem;">
+      <input type="radio" id="mode_flexible" name="trip.mode" value="flexible" {{ 'checked' if values.trip.flexible.enabled else '' }}>
+      <label for="mode_flexible">Flexible window — cheapest trip departing any day in a range</label>
+    </div>
+    <label for="earliest_depart">Earliest departure</label>
+    <input type="date" id="earliest_depart" name="trip.flexible.earliest_depart" value="{{ values.trip.flexible.earliest_depart }}">
+    <label for="latest_depart">Latest departure</label>
+    <input type="date" id="latest_depart" name="trip.flexible.latest_depart" value="{{ values.trip.flexible.latest_depart }}">
+    <label for="trip_length_days">Trip length (days)</label>
+    <input type="number" id="trip_length_days" name="trip.flexible.trip_length_days" value="{{ values.trip.flexible.trip_length_days }}" min="1">
+    <label for="scan_step_days">Scan every N days across the window</label>
+    <input type="number" id="scan_step_days" name="trip.flexible.scan_step_days" value="{{ values.trip.flexible.scan_step_days }}" min="1">
+    {% for msg in errors.get('trip.flexible.earliest_depart', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    {% for msg in errors.get('trip.flexible.latest_depart', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+  </div>
+
+  <div class="card">
+    <h2>Alerts</h2>
+    <label for="threshold_price">Notify when price is at or below</label>
+    <input type="number" id="threshold_price" name="alerts.threshold_price" value="{{ values.alerts.threshold_price }}" step="1" min="0">
+    {% for msg in errors.get('alerts.threshold_price', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+
+    <label for="drop_percent">Notify on a drop of at least (%)</label>
+    <input type="number" id="drop_percent" name="alerts.drop_percent" value="{{ values.alerts.drop_percent }}" step="1" min="0" max="100">
+    {% for msg in errors.get('alerts.drop_percent', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="notify_on_new_low" name="alerts.notify_on_new_low" {{ 'checked' if values.alerts.notify_on_new_low else '' }}>
+      <label for="notify_on_new_low">Notify on a new all-time low</label>
+    </div>
+
+    <label for="cooldown_hours">Minimum hours between alerts</label>
+    <input type="number" id="cooldown_hours" name="alerts.cooldown_hours" value="{{ values.alerts.cooldown_hours }}" step="1" min="0">
+    {% for msg in errors.get('alerts.cooldown_hours', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+  </div>
+
+  <div class="card">
+    <h2>Schedule</h2>
+    <label for="every_hours">Check every N hours</label>
+    <input type="number" id="every_hours" name="schedule.every_hours" value="{{ values.schedule.every_hours }}" step="1" min="1">
+    {% for msg in errors.get('schedule.every_hours', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    <div class="hint">The systemd timer re-reads this on its next run.</div>
+  </div>
+
+  <div class="card">
+    <h2>Dashboard</h2>
+    <label for="top_n_fares">How many fares to show per poll</label>
+    <input type="number" id="top_n_fares" name="dashboard.top_n_fares" value="{{ values.dashboard.top_n_fares }}" step="1" min="1" max="10">
+    {% for msg in errors.get('dashboard.top_n_fares', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    <div class="hint">The best 1-10 fares found on each poll, not just the single cheapest.</div>
+  </div>
+
+  <div class="card">
+    <h2>Conversational AI (optional)</h2>
+    <p class="hint">Chat with the tracker on Telegram or Discord — ask "what's the status" or "any price drops". Each bot only starts if its own token below is set; run it separately via <code>skytracer run-telegram-bot</code> / <code>skytracer run-discord-bot</code>.</p>
+
+    <label for="ai_provider">LLM provider</label>
+    <select id="ai_provider" name="ai.provider">
+      {% for choice in ['ollama', 'anthropic'] %}
+      <option value="{{ choice }}" {{ 'selected' if values.ai.provider == choice else '' }}>{{ choice }}</option>
+      {% endfor %}
+    </select>
+    {% for msg in errors.get('ai.provider', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+
+    <label for="ollama_base_url">Ollama base URL</label>
+    <input type="text" id="ollama_base_url" name="ai.ollama_base_url" value="{{ values.ai.ollama_base_url }}" autocomplete="off">
+    <label for="ollama_model">Ollama model</label>
+    <input type="text" id="ollama_model" name="ai.ollama_model" value="{{ values.ai.ollama_model }}" autocomplete="off">
+
+    <label for="anthropic_api_key">Anthropic API key {% if secrets_set['ai.anthropic_api_key'] %}<span class="masked">(•••• set — leave blank to keep)</span>{% endif %}</label>
+    <input type="password" id="anthropic_api_key" name="ai.anthropic_api_key" placeholder="{{ '•••• set' if secrets_set['ai.anthropic_api_key'] else '' }}" autocomplete="off">
+
+    <div class="source-row">
+      <label for="telegram_bot_token">Telegram bot token {% if secrets_set['ai.telegram_bot_token'] %}<span class="masked">(•••• set — leave blank to keep)</span>{% endif %}</label>
+      <input type="password" id="telegram_bot_token" name="ai.telegram_bot_token" placeholder="{{ '•••• set' if secrets_set['ai.telegram_bot_token'] else '' }}" autocomplete="off">
+      <label for="telegram_allowed_user_id">Your Telegram user ID</label>
+      <input type="text" id="telegram_allowed_user_id" name="ai.telegram_allowed_user_id" value="{{ values.ai.telegram_allowed_user_id }}" autocomplete="off">
+      <div class="hint">The bot ignores everyone except this numeric user ID.</div>
+    </div>
+
+    <div class="source-row">
+      <label for="discord_bot_token">Discord bot token {% if secrets_set['ai.discord_bot_token'] %}<span class="masked">(•••• set — leave blank to keep)</span>{% endif %}</label>
+      <input type="password" id="discord_bot_token" name="ai.discord_bot_token" placeholder="{{ '•••• set' if secrets_set['ai.discord_bot_token'] else '' }}" autocomplete="off">
+      <label for="discord_allowed_user_id">Your Discord user ID</label>
+      <input type="text" id="discord_allowed_user_id" name="ai.discord_allowed_user_id" value="{{ values.ai.discord_allowed_user_id }}" autocomplete="off">
+      <div class="hint">The bot ignores everyone except this numeric user ID.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Sources</h2>
+
+    <div class="source-row">
+      <div class="checkbox-row">
+        <input type="checkbox" id="google_enabled" name="sources.google.enabled" {{ 'checked' if values.sources.google.enabled else '' }}>
+        <label for="google_enabled"><strong>Google Flights</strong> — free, no key needed</label>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="google_browser_fallback" name="sources.google.use_browser_fallback" {{ 'checked' if values.sources.google.use_browser_fallback else '' }}>
+        <label for="google_browser_fallback">Use browser fallback on empty results (slower, needs Playwright installed)</label>
+      </div>
+      <button type="submit" name="test_source" value="google" class="secondary">Test Google</button>
+      {% if source_test_result and source_test_result.name == 'google' %}
+        <span class="{{ 'flash-ok' if source_test_result.ok else 'flash-error' }}">{{ '✅' if source_test_result.ok else '❌' }} {{ source_test_result.message }}</span>
+      {% endif %}
+    </div>
+
+    <div class="source-row">
+      <div class="checkbox-row">
+        <input type="checkbox" id="kiwi_enabled" name="sources.kiwi.enabled" {{ 'checked' if values.sources.kiwi.enabled else '' }}>
+        <label for="kiwi_enabled"><strong>Kiwi.com</strong> — surfaces cheap self-transfer fares</label>
+      </div>
+      <label for="kiwi_api_key">API key {% if secrets_set['sources.kiwi.api_key'] %}<span class="masked">(•••• set — leave blank to keep)</span>{% endif %}</label>
+      <input type="password" id="kiwi_api_key" name="sources.kiwi.api_key" placeholder="{{ '•••• set' if secrets_set['sources.kiwi.api_key'] else '' }}" autocomplete="off">
+      <div class="hint">Get a free dev key at <a href="https://tequila.kiwi.com/portal/login" target="_blank" rel="noopener">tequila.kiwi.com</a></div>
+      {% for msg in errors.get('sources.kiwi', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+      <button type="submit" name="test_source" value="kiwi" class="secondary">Test Kiwi</button>
+      {% if source_test_result and source_test_result.name == 'kiwi' %}
+        <span class="{{ 'flash-ok' if source_test_result.ok else 'flash-error' }}">{{ '✅' if source_test_result.ok else '❌' }} {{ source_test_result.message }}</span>
+      {% endif %}
+    </div>
+
+    <div class="source-row">
+      <div class="checkbox-row">
+        <input type="checkbox" id="travelpayouts_enabled" name="sources.travelpayouts.enabled" {{ 'checked' if values.sources.travelpayouts.enabled else '' }}>
+        <label for="travelpayouts_enabled"><strong>Travelpayouts</strong> — cached price trend data</label>
+      </div>
+      <label for="travelpayouts_token">Token {% if secrets_set['sources.travelpayouts.token'] %}<span class="masked">(•••• set — leave blank to keep)</span>{% endif %}</label>
+      <input type="password" id="travelpayouts_token" name="sources.travelpayouts.token" placeholder="{{ '•••• set' if secrets_set['sources.travelpayouts.token'] else '' }}" autocomplete="off">
+      <div class="hint">Free to register at <a href="https://www.travelpayouts.com" target="_blank" rel="noopener">travelpayouts.com</a></div>
+      {% for msg in errors.get('sources.travelpayouts', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+      <button type="submit" name="test_source" value="travelpayouts" class="secondary">Test Travelpayouts</button>
+      {% if source_test_result and source_test_result.name == 'travelpayouts' %}
+        <span class="{{ 'flash-ok' if source_test_result.ok else 'flash-error' }}">{{ '✅' if source_test_result.ok else '❌' }} {{ source_test_result.message }}</span>
+      {% endif %}
+    </div>
+
+    <div class="source-row">
+      <div class="checkbox-row">
+        <input type="checkbox" id="duffel_enabled" name="sources.duffel.enabled" {{ 'checked' if values.sources.duffel.enabled else '' }}>
+        <label for="duffel_enabled"><strong>Duffel</strong> — pay-as-you-go NDC fares</label>
+      </div>
+      <label for="duffel_api_key">API key {% if secrets_set['sources.duffel.api_key'] %}<span class="masked">(•••• set — leave blank to keep)</span>{% endif %}</label>
+      <input type="password" id="duffel_api_key" name="sources.duffel.api_key" placeholder="{{ '•••• set' if secrets_set['sources.duffel.api_key'] else '' }}" autocomplete="off">
+      <div class="hint">Get a key at <a href="https://duffel.com" target="_blank" rel="noopener">duffel.com</a></div>
+      {% for msg in errors.get('sources.duffel', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+      <button type="submit" name="test_source" value="duffel" class="secondary">Test Duffel</button>
+      {% if source_test_result and source_test_result.name == 'duffel' %}
+        <span class="{{ 'flash-ok' if source_test_result.ok else 'flash-error' }}">{{ '✅' if source_test_result.ok else '❌' }} {{ source_test_result.message }}</span>
+      {% endif %}
+    </div>
+
+    <div class="source-row">
+      <div class="checkbox-row">
+        <input type="checkbox" id="mcp_enabled" name="sources.mcp.enabled" {{ 'checked' if values.sources.mcp.enabled else '' }}>
+        <label for="mcp_enabled"><strong>MCP aggregator</strong> — a multi-source flight-price MCP server</label>
+      </div>
+      <label for="mcp_endpoint">Endpoint URL</label>
+      <input type="text" id="mcp_endpoint" name="sources.mcp.endpoint" value="{{ values.sources.mcp.endpoint }}" autocomplete="off">
+      <label for="mcp_tool_name">Tool name</label>
+      <input type="text" id="mcp_tool_name" name="sources.mcp.tool_name" value="{{ values.sources.mcp.tool_name }}" autocomplete="off">
+      <div class="hint">The name of the flight-search tool exposed by your MCP server — there's no standard name across servers, so this must match whatever your server calls it.</div>
+      {% for msg in errors.get('sources.mcp', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+      <button type="submit" name="test_source" value="mcp" class="secondary">Test MCP</button>
+      {% if source_test_result and source_test_result.name == 'mcp' %}
+        <span class="{{ 'flash-ok' if source_test_result.ok else 'flash-error' }}">{{ '✅' if source_test_result.ok else '❌' }} {{ source_test_result.message }}</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Notifications</h2>
+    <label for="channel">Channel</label>
+    <select id="channel" name="notify.channel">
+      {% for choice in ['whatsapp', 'ntfy', 'discord', 'email'] %}
+      <option value="{{ choice }}" {{ 'selected' if values.notify.channel == choice else '' }}>{{ choice }}</option>
+      {% endfor %}
+    </select>
+    {% for msg in errors.get('notify.channel', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+
+    <div class="notify-fields">
+      <h3>WhatsApp (CallMeBot)</h3>
+      <p class="hint">
+        One-time setup from your phone: 1) add the CallMeBot contact
+        (+34 644 44 71 64) in WhatsApp, 2) send it the message
+        <em>"I allow callmebot to send me messages"</em>, 3) it replies with
+        an API key — paste that below along with your phone number.
+      </p>
+      <label for="whatsapp_phone">Your WhatsApp number (E.164, e.g. +14055551234)</label>
+      <input type="text" id="whatsapp_phone" name="notify.whatsapp.phone" value="{{ values.notify.whatsapp.phone }}">
+      <label for="whatsapp_apikey">CallMeBot API key {% if secrets_set['notify.whatsapp.callmebot_apikey'] %}<span class="masked">(•••• set — leave blank to keep)</span>{% endif %}</label>
+      <input type="password" id="whatsapp_apikey" name="notify.whatsapp.callmebot_apikey" placeholder="{{ '•••• set' if secrets_set['notify.whatsapp.callmebot_apikey'] else '' }}" autocomplete="off">
+      <div class="hint">CallMeBot is a free third-party hobby service (no Meta affiliation), best-effort delivery, personal use only.</div>
+    </div>
+
+    <div class="notify-fields">
+      <h3>ntfy</h3>
+      <label for="ntfy_server">Server</label>
+      <input type="text" id="ntfy_server" name="notify.ntfy.server" value="{{ values.notify.ntfy.server }}">
+      <label for="ntfy_topic">Topic</label>
+      <input type="text" id="ntfy_topic" name="notify.ntfy.topic" value="{{ values.notify.ntfy.topic }}">
+    </div>
+
+    <div class="notify-fields">
+      <h3>Discord</h3>
+      <label for="discord_webhook">Webhook URL {% if secrets_set['notify.discord.webhook_url'] %}<span class="masked">(•••• set — leave blank to keep)</span>{% endif %}</label>
+      <input type="password" id="discord_webhook" name="notify.discord.webhook_url" placeholder="{{ '•••• set' if secrets_set['notify.discord.webhook_url'] else '' }}" autocomplete="off">
+    </div>
+
+    <div class="notify-fields">
+      <h3>Email</h3>
+      <label for="smtp_host">SMTP host</label>
+      <input type="text" id="smtp_host" name="notify.email.smtp_host" value="{{ values.notify.email.smtp_host }}">
+      <label for="smtp_port">SMTP port</label>
+      <input type="number" id="smtp_port" name="notify.email.smtp_port" value="{{ values.notify.email.smtp_port }}">
+      <label for="email_username">Username</label>
+      <input type="text" id="email_username" name="notify.email.username" value="{{ values.notify.email.username }}">
+      <label for="email_password">Password {% if secrets_set['notify.email.password'] %}<span class="masked">(•••• set — leave blank to keep)</span>{% endif %}</label>
+      <input type="password" id="email_password" name="notify.email.password" placeholder="{{ '•••• set' if secrets_set['notify.email.password'] else '' }}" autocomplete="off">
+      <label for="to_addr">Send alerts to</label>
+      <input type="text" id="to_addr" name="notify.email.to_addr" value="{{ values.notify.email.to_addr }}">
+    </div>
+
+    <div class="actions-row">
+      <button type="submit" name="save" value="1">Save settings</button>
+      <button type="submit" name="test_notify" value="1" class="secondary">Send test notification</button>
+    </div>
+    {% if notify_test_result %}
+      <span class="{{ 'flash-ok' if notify_test_result.ok else 'flash-error' }}">{{ '✅' if notify_test_result.ok else '❌' }} {{ notify_test_result.message }}</span>
+    {% endif %}
+  </div>
+</form>
+
+<div class="card">
+  <h2>Security</h2>
+  <form method="post" action="/settings/security">
+    <label for="current_password">Current password</label>
+    <input type="password" id="current_password" name="current_password" required>
+    <label for="new_password">New password</label>
+    <input type="password" id="new_password" name="new_password" required minlength="8">
+    <label for="confirm_password">Confirm new password</label>
+    <input type="password" id="confirm_password" name="confirm_password" required minlength="8">
+    {% if security_error %}<div class="error">{{ security_error }}</div>{% endif %}
+    <div class="actions-row">
+      <button type="submit">Change password</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Actions</h2>
+  <form method="post" action="/settings/run-now">
+    <div class="actions-row">
+      <button type="submit">Run a check now</button>
+      <a class="button secondary" href="/">View Dashboard</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

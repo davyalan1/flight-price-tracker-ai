@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}{{ route_key }} — Skytracer{% endblock %}
+{% block content %}
+<p><a href="/">&larr; All routes</a></p>
+<div class="card">
+  <h2>{{ route_key }}</h2>
+  {% if stats %}
+  <table>
+    <tr><th>Current</th><td class="num">{{ stats.currency }} {{ "%.2f"|format(stats.current_price) }}</td></tr>
+    <tr><th>All-time low</th><td class="num">{{ stats.currency }} {{ "%.2f"|format(stats.all_time_low) }}</td></tr>
+    <tr><th>All-time high</th><td class="num">{{ stats.currency }} {{ "%.2f"|format(stats.all_time_high) }}</td></tr>
+    <tr><th>30-day low</th><td class="num">{{ stats.currency }} {{ "%.2f"|format(stats.low_30d) }}</td></tr>
+    <tr><th>Trend</th><td class="trend-{{ stats.trend }}">{{ stats.trend }}</td></tr>
+  </table>
+  {% else %}
+  <p class="hint">No observations for this route yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Best fares right now</h2>
+  {% if top_fares %}
+  <div class="fare-list">
+    {% for f in top_fares %}
+    <div class="fare-row">
+      <span class="fare-rank num">{{ loop.index }}</span>
+      <span class="fare-price num">{{ f.currency }} {{ "%.2f"|format(f.price) }}</span>
+      <span class="fare-detail">{{ f.route }} &middot; {{ f.stops }} stop{{ "s" if f.stops != 1 else "" }} &middot; {{ f.airlines }} &middot; {{ f.source }}</span>
+      {% if f.deep_link %}<a class="button secondary" href="{{ f.deep_link }}" target="_blank" rel="noopener">Book</a>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="hint">No observations yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Route</h2>
+  {% if route_map_svg %}
+    {{ route_map_svg | safe }}
+    {% if route_map_coords %}
+    <div class="map-toggle-row">
+      <input type="checkbox" id="map-toggle">
+      <label for="map-toggle" style="margin:0;">Show interactive map (loads OpenStreetMap over the internet)</label>
+    </div>
+    <div id="interactive-map"></div>
+    <script>
+      (function () {
+        var checkbox = document.getElementById("map-toggle");
+        var mapEl = document.getElementById("interactive-map");
+        var coords = {{ route_map_coords | tojson }};
+        var loaded = false;
+        checkbox.addEventListener("change", function () {
+          if (!checkbox.checked) { mapEl.classList.remove("active"); return; }
+          mapEl.classList.add("active");
+          if (loaded) return;
+          loaded = true;
+          var css = document.createElement("link");
+          css.rel = "stylesheet";
+          css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+          document.head.appendChild(css);
+          var script = document.createElement("script");
+          script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+          script.onload = function () {
+            var map = L.map(mapEl);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+              attribution: "&copy; OpenStreetMap contributors",
+            }).addTo(map);
+            var latlngs = coords.map(function (c) { return [c.lat, c.lon]; });
+            L.polyline(latlngs, { color: "#c97a1e" }).addTo(map);
+            coords.forEach(function (c) {
+              L.marker([c.lat, c.lon]).addTo(map).bindPopup(c.code);
+            });
+            map.fitBounds(latlngs, { padding: [20, 20] });
+          };
+          document.body.appendChild(script);
+        });
+      })();
+    </script>
+    {% endif %}
+  {% else %}
+    <p class="hint">Route map isn't available yet for this itinerary's airports.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Price history</h2>
+  {% if chart_svg %}
+    {{ chart_svg | safe }}
+  {% else %}
+    <p class="hint">Not enough observations yet to draw a chart — check back after a few more polls.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Alert history</h2>
+  {% if alert_history %}
+  <ul class="timeline">
+    {% for a in alert_history %}
+    <li>
+      <div class="t-price num">{{ "%.2f"|format(a.price) }}</div>
+      <div class="t-meta">{{ a.reason }} &middot; {{ a.sent_at }}</div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="hint">No alerts sent for this route yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Recent observations</h2>
+  {% if observations %}
+  <table>
+    <thead><tr><th>Observed (UTC)</th><th>Price</th><th>Stops</th><th>Airlines</th><th>Source</th><th>Link</th></tr></thead>
+    <tbody>
+      {% for o in observations %}
+      <tr>
+        <td>{{ o.observed_at }}</td>
+        <td class="num">{{ o.currency }} {{ "%.2f"|format(o.price) }}</td>
+        <td>{{ o.stops }}</td>
+        <td>{{ o.airlines }}</td>
+        <td>{{ o.source }}</td>
+        <td>{% if o.deep_link %}<a href="{{ o.deep_link }}" target="_blank" rel="noopener">book</a>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="hint">No observations yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

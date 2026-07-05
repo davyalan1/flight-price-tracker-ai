@@ -1,0 +1,44 @@
+[project]
+name = "skytracer"
+version = "0.1.0"
+description = "Self-hosted flight-price tracker"
+requires-python = ">=3.11"
+dependencies = [
+    "typer",
+    "faster-flights",
+    "httpx",
+    "fastapi",
+    "uvicorn",
+    "jinja2",
+    "python-multipart",
+    "itsdangerous",
+    "mcp<2",
+    "python-telegram-bot",
+    "discord.py",
+]
+
+[project.scripts]
+skytracer = "skytracer.cli:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["skytracer*"]
+
+[tool.setuptools.package-data]
+# Non-.py assets setuptools wouldn't otherwise bundle into a non-editable
+# install (`pip install -e .` masked this in dev — it reads straight from
+# the source tree instead of an installed wheel).
+"skytracer.web" = ["templates/*.html", "static/*.css"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

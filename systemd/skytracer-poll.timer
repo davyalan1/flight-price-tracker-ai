@@ -1,0 +1,15 @@
+[Unit]
+Description=Skytracer fare poll timer
+
+[Timer]
+# Fires often; skytracer-poll.service's `skytracer poll` decides whether a
+# poll is actually due by comparing schedule.every_hours (edited on the
+# Settings page) against the last poll attempt. This means changing the
+# schedule in Settings takes effect on the next tick below, with no need to
+# edit or reload this file.
+OnBootSec=2min
+OnUnitActiveSec=15min
+Unit=skytracer-poll.service
+
+[Install]
+WantedBy=timers.target

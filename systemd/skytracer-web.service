@@ -1,0 +1,17 @@
+[Unit]
+Description=Skytracer web UI (Settings + Dashboard)
+After=network.target
+
+[Service]
+Type=simple
+User=skytracer
+Group=skytracer
+Environment=SKYTRACER_CONFIG=/etc/skytracer/config.toml
+Environment=SKYTRACER_DB=/var/lib/skytracer/skytracer.db
+WorkingDirectory=/opt/skytracer
+ExecStart=/opt/skytracer/venv/bin/skytracer run-web
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,139 @@
+# Skytracer configuration seed.
+#
+# This file is only read ONCE, the first time Skytracer starts and finds an
+# empty `settings` table in its SQLite database. After that, the database is
+# the source of truth and this file is ignored — all changes happen through
+# the web Settings page (http://<this-box>:8087/settings).
+#
+# Editing this file after first boot has no effect on a running install.
+# It's kept around as a readable reference for what each setting means.
+
+[trip]
+origin = "OKC"          # 3-letter IATA code, e.g. OKC = Will Rogers World (Oklahoma City)
+destination = "NRT"     # 3-letter IATA code, e.g. NRT = Narita, HND = Haneda
+adults = 1
+cabin = "economy"       # economy | premium_economy | business | first
+currency = "USD"        # 3-letter currency code
+
+# Exactly ONE of [trip.fixed] or [trip.flexible] should be enabled = true.
+
+[trip.fixed]
+# Example: a fixed trip window (both depart_date and return_date set).
+# This models a specific window, not "cheapest N-day trip anywhere
+# in a range", so this is modeled as fixed dates rather than flexible.
+enabled = true
+depart_date = "2026-06-01"   # YYYY-MM-DD
+return_date = "2026-06-15"   # YYYY-MM-DD, leave blank for one-way
+
+[trip.flexible]
+# "cheapest 10-day trip departing any day in this window" — left here
+# (disabled) as a reference/fallback; flip enabled=true and disable
+# [trip.fixed] above to use this mode instead once Phase 7 (flexible-window
+# scanning) actually samples across the window rather than just its start.
+enabled = false
+earliest_depart = "2026-09-01"
+latest_depart = "2026-11-30"
+trip_length_days = 10
+scan_step_days = 3      # sample every N days across the window to bound request count
+
+[alerts]
+threshold_price = 900   # notify when the cheapest fare is at or below this
+drop_percent = 8        # notify when price drops by at least this % since the last observation
+notify_on_new_low = true
+cooldown_hours = 12     # minimum time between alerts for the same route/date-key
+
+[schedule]
+every_hours = 6         # how often to poll for prices
+
+# --- Fare sources -----------------------------------------------------------
+# Google needs no key and works standalone. Everything else is optional: paste
+# a key on the Settings page, toggle it on, hit "Test", and save — no file
+# editing or restart needed.
+
+[sources.google]
+enabled = true
+use_browser_fallback = true   # falls back to a headless-browser fetch on cold-cache nulls
+
+[sources.kiwi]
+enabled = false
+api_key = ""
+
+[sources.travelpayouts]
+enabled = false
+token = ""
+
+[sources.duffel]
+enabled = false
+api_key = ""
+
+[sources.mcp]
+# Points at a user-run MCP server exposing a flight-search tool. No standard
+# tool name or result shape exists across MCP servers, so tool_name is
+# configurable; result parsing is best-effort and logs clearly on mismatch.
+enabled = false
+endpoint = ""
+tool_name = "search_flights"
+
+# --- Notifications -----------------------------------------------------------
+
+[notify]
+channel = "whatsapp"    # whatsapp | ntfy | discord | email
+
+[notify.whatsapp]
+provider = "callmebot"  # callmebot | cloud_api | twilio
+phone = ""              # your WhatsApp number, E.164 format e.g. +14055551234
+callmebot_apikey = ""
+# --- upgrade paths, only needed if provider is not "callmebot" -------------
+# cloud_api: Meta WhatsApp Cloud API. Needs a Meta Business account, a
+# registered number, and a pre-approved message template (price alerts are
+# business-initiated, outside the 24h customer-service window).
+cloud_api_phone_number_id = ""
+cloud_api_access_token = ""
+cloud_api_template_name = ""
+# twilio: paid, easy sandbox, same Meta template rules apply.
+twilio_account_sid = ""
+twilio_auth_token = ""
+twilio_from_number = ""
+
+[notify.ntfy]
+server = "https://ntfy.sh"
+topic = "flight-alerts"
+
+[notify.discord]
+webhook_url = ""
+
+[notify.email]
+smtp_host = ""
+smtp_port = 587
+username = ""
+password = ""
+to_addr = ""
+
+[dashboard]
+# How many of the cheapest fares from each poll to keep and show, not just
+# the single overall-cheapest one. 1-10.
+top_n_fares = 5
+
+[ai]
+# Optional conversational bots (Telegram/Discord) so you can ask "what's the
+# status" or "any price drops" and get a real answer. Each bot only starts
+# if its own bot_token is set below. Leave both blank to skip this feature
+# entirely.
+provider = "ollama"          # "ollama" (local, default) or "anthropic" (cloud)
+ollama_base_url = "http://localhost:11434/v1"
+ollama_model = "llama3"
+anthropic_api_key = ""       # only needed if provider = "anthropic"
+telegram_bot_token = ""      # from @BotFather
+telegram_allowed_user_id = ""  # your numeric Telegram user ID — the bot ignores everyone else
+discord_bot_token = ""       # from the Discord Developer Portal
+discord_allowed_user_id = "" # your numeric Discord user ID — the bot ignores everyone else
+
+[web]
+host = "0.0.0.0"
+port = 8087
+# REQUIRED before Settings can be edited. Leave blank — the app will force a
+# "create admin password" step on first visit to /settings.
+admin_password = ""
+
+[db]
+path = "/var/lib/skytracer/skytracer.db"

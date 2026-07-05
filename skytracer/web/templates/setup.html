@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Create admin password — Skytracer{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Welcome — set an admin password</h2>
+  <p class="hint">
+    This password protects the Settings page (route, dates, threshold, API
+    keys, notification target). Anyone on your network can still view the
+    read-only Dashboard without it.
+  </p>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form method="post" action="/setup">
+    <label for="password">Admin password</label>
+    <input type="password" id="password" name="password" required minlength="8" autofocus>
+    <label for="confirm">Confirm password</label>
+    <input type="password" id="confirm" name="confirm" required minlength="8">
+    <div class="actions-row">
+      <button type="submit">Create password &amp; continue</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
