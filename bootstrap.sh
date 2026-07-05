@@ -92,16 +92,34 @@ systemctl daemon-reload
 systemctl enable --now skytracer-poll.timer skytracer-web.service
 
 # The conversational bots are optional — each only starts if its own token
-# is configured (empty by default in config.example.toml), same pattern as
-# the Playwright fallback above. `skytracer run-telegram-bot`/
-# `run-discord-bot` also refuse to start without a token, so this is a
-# convenience (auto-start once configured), not the only safety net.
+# is actually configured. `skytracer run-telegram-bot`/`run-discord-bot`
+# also refuse to start without a token, so this is a convenience
+# (auto-start once configured), not the only safety net.
+#
+# Checked against the live settings *database*, not config.toml: that file
+# only ever seeds the settings table once on first install (see
+# skytracer/bootstrap.py) — on any box that's already been configured via
+# the Settings page (i.e. every real install past its first boot), the
+# token genuinely lives in the database and config.toml stays exactly as
+# it was seeded. Checking config.toml here would (and, on this box, did)
+# read a stale/absent value and enable a service with no real token,
+# crash-looping it under Restart=on-failure.
 for platform in telegram discord; do
-  if ! grep -q "^${platform}_bot_token = \"\"" "$CONFIG_DIR/config.toml"; then
+  token="$("$INSTALL_DIR/venv/bin/python3" -c "
+import sqlite3, json
+try:
+    conn = sqlite3.connect('$DATA_DIR/skytracer.db')
+    row = conn.execute(\"SELECT value FROM settings WHERE key = 'ai.${platform}_bot_token'\").fetchone()
+    print(json.loads(row[0]) if row else '')
+except sqlite3.Error:
+    print('')
+")"
+  if [ -n "$token" ]; then
     echo "==> ai.${platform}_bot_token is set — enabling the $platform bot"
     systemctl enable --now "skytracer-bot-$platform.service"
   else
     echo "==> ai.${platform}_bot_token is empty — skipping the $platform bot"
+    systemctl disable --now "skytracer-bot-$platform.service" 2>/dev/null || true
   fi
 done
 
