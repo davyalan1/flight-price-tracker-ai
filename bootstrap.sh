@@ -89,7 +89,16 @@ cp "$INSTALL_DIR/systemd/skytracer-bot-discord.service" "$SYSTEMD_DIR/"
 
 echo "==> Enabling services"
 systemctl daemon-reload
-systemctl enable --now skytracer-poll.timer skytracer-web.service
+systemctl enable --now skytracer-poll.timer
+# `enable --now` only *starts* skytracer-web.service if it isn't already
+# running — on every re-run (the whole point of this script being
+# idempotent/upgradeable) it was already active, so "--now" was a no-op
+# and the running process kept executing whatever code was in memory from
+# before this sync, even though the files on disk were just updated.
+# `restart` starts it if stopped and restarts it if running, so an upgrade
+# actually takes effect either way.
+systemctl enable skytracer-web.service
+systemctl restart skytracer-web.service
 
 # The conversational bots are optional — each only starts if its own token
 # is actually configured. `skytracer run-telegram-bot`/`run-discord-bot`
@@ -116,7 +125,8 @@ except sqlite3.Error:
 ")"
   if [ -n "$token" ]; then
     echo "==> ai.${platform}_bot_token is set — enabling the $platform bot"
-    systemctl enable --now "skytracer-bot-$platform.service"
+    systemctl enable "skytracer-bot-$platform.service"
+    systemctl restart "skytracer-bot-$platform.service"
   else
     echo "==> ai.${platform}_bot_token is empty — skipping the $platform bot"
     systemctl disable --now "skytracer-bot-$platform.service" 2>/dev/null || true
