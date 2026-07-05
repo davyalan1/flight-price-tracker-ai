@@ -10,6 +10,7 @@ import sqlite3
 from skytracer.ai import LLMBackend
 from skytracer.ai.anthropic_backend import AnthropicBackend
 from skytracer.ai.context import build_grounding_context
+from skytracer.ai.llamaserver_backend import LlamaServerBackend
 from skytracer.ai.ollama_backend import OllamaBackend
 from skytracer.config import AiConfig
 
@@ -27,7 +28,17 @@ DATA:
 def build_backend(config: AiConfig) -> LLMBackend:
     if config.provider == "anthropic":
         return AnthropicBackend(api_key=config.anthropic_api_key)
-    return OllamaBackend(base_url=config.ollama_base_url, model=config.ollama_model)
+    if config.provider == "llamaserver":
+        return LlamaServerBackend(
+            base_url=config.llamaserver_base_url,
+            model=config.llamaserver_model,
+            thinking=config.enable_thinking,
+        )
+    return OllamaBackend(
+        base_url=config.ollama_base_url,
+        model=config.ollama_model,
+        thinking=config.enable_thinking,
+    )
 
 
 def answer_question(conn: sqlite3.Connection, config: AiConfig, question: str) -> str:

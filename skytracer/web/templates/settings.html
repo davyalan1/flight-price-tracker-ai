@@ -106,16 +106,27 @@
 
     <label for="ai_provider">LLM provider</label>
     <select id="ai_provider" name="ai.provider">
-      {% for choice in ['ollama', 'anthropic'] %}
+      {% for choice in ['ollama', 'llamaserver', 'anthropic'] %}
       <option value="{{ choice }}" {{ 'selected' if values.ai.provider == choice else '' }}>{{ choice }}</option>
       {% endfor %}
     </select>
     {% for msg in errors.get('ai.provider', []) %}<div class="error">{{ msg }}</div>{% endfor %}
 
+    <div class="checkbox-row">
+      <input type="checkbox" id="enable_thinking" name="ai.enable_thinking" {{ 'checked' if values.ai.enable_thinking else '' }}>
+      <label for="enable_thinking">Let the model "think" before answering (Ollama/llama-server only)</label>
+    </div>
+    <div class="hint">Off by default — direct answers read better as a chat message, and some models are unreliable with this on.</div>
+
     <label for="ollama_base_url">Ollama base URL</label>
     <input type="text" id="ollama_base_url" name="ai.ollama_base_url" value="{{ values.ai.ollama_base_url }}" autocomplete="off">
     <label for="ollama_model">Ollama model</label>
     <input type="text" id="ollama_model" name="ai.ollama_model" value="{{ values.ai.ollama_model }}" autocomplete="off">
+
+    <label for="llamaserver_base_url">llama-server base URL</label>
+    <input type="text" id="llamaserver_base_url" name="ai.llamaserver_base_url" value="{{ values.ai.llamaserver_base_url }}" autocomplete="off">
+    <label for="llamaserver_model">llama-server model</label>
+    <input type="text" id="llamaserver_model" name="ai.llamaserver_model" value="{{ values.ai.llamaserver_model }}" autocomplete="off">
 
     <label for="anthropic_api_key">Anthropic API key {% if secrets_set['ai.anthropic_api_key'] %}<span class="masked">(•••• set — leave blank to keep)</span>{% endif %}</label>
     <input type="password" id="anthropic_api_key" name="ai.anthropic_api_key" placeholder="{{ '•••• set' if secrets_set['ai.anthropic_api_key'] else '' }}" autocomplete="off">

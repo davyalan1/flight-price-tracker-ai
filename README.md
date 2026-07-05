@@ -43,12 +43,15 @@ like `http://<box-ip>:8087`. Everything you'd want to change happens on the
      it actually reaches you before relying on it.
    - **Conversational AI (optional)** — chat with the tracker on Telegram or
      Discord: ask "what's the status" or "any price drops" and get a real
-     answer. Pick a provider (a locally-hosted model via Ollama, or
-     Anthropic's cloud API), then paste a bot token (from @BotFather for
-     Telegram, or the Discord Developer Portal for Discord) and your own
-     numeric user ID — the bot ignores everyone else. Each bot only starts
-     once its token is set; see "Installing" below for enabling the
-     service.
+     answer. Pick a provider — a locally-hosted model via Ollama or
+     llama-server, or Anthropic's cloud API — then paste a bot token (from
+     @BotFather for Telegram, or the Discord Developer Portal for Discord)
+     and your own numeric user ID — the bot ignores everyone else. "Let the
+     model think before answering" is off by default (short, direct
+     answers read better as a chat message); Ollama and llama-server each
+     use their own request format for this internally, but the one
+     checkbox covers both. Each bot only starts once its token is set; see
+     "Installing" below for enabling the service.
    - **Security** — change your password here.
    - **Actions** — **"Run a check now"** if you don't want to wait for the
      next scheduled check.

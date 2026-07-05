@@ -34,6 +34,14 @@ def test_ai_defaults_to_ollama_when_ai_section_missing(valid_raw_config: dict) -
     result = validate(valid_raw_config)
     assert result.config.ai.provider == "ollama"
     assert result.config.ai.ollama_base_url == "http://localhost:11434/v1"
+    assert result.config.ai.llamaserver_base_url == "http://localhost:11435/v1"
+    assert result.config.ai.enable_thinking is False
+
+
+def test_ai_llamaserver_is_a_valid_provider(valid_raw_config: dict) -> None:
+    valid_raw_config["ai"]["provider"] = "llamaserver"
+    result = validate(valid_raw_config)
+    assert result.config.ai.provider == "llamaserver"
 
 
 def test_ai_invalid_provider_is_rejected(valid_raw_config: dict) -> None:

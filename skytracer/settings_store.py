@@ -108,6 +108,13 @@ def backfill_missing(conn: sqlite3.Connection) -> None:
         set(conn, "ai.telegram_allowed_user_id", "")
         set(conn, "ai.discord_bot_token", "")
         set(conn, "ai.discord_allowed_user_id", "")
+    # Added after ai.provider itself — a settings table seeded between that
+    # first ai.* rollout and this one would have ai.provider set but not
+    # these, so they need their own independent check.
+    if get(conn, "ai.llamaserver_base_url", None) is None:
+        set(conn, "ai.llamaserver_base_url", "http://localhost:11435/v1")
+        set(conn, "ai.llamaserver_model", "")
+        set(conn, "ai.enable_thinking", False)
 
 
 def as_dict(conn: sqlite3.Connection) -> dict[str, Any]:

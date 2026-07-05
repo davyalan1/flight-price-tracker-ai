@@ -240,6 +240,13 @@ def _merge_settings_from_form(form: FormData, stored: dict) -> dict:
                 "ai.ollama_base_url", stored["ai"]["ollama_base_url"]
             ),
             "ollama_model": form.get("ai.ollama_model", stored["ai"]["ollama_model"]),
+            "llamaserver_base_url": form.get(
+                "ai.llamaserver_base_url", stored["ai"]["llamaserver_base_url"]
+            ),
+            "llamaserver_model": form.get(
+                "ai.llamaserver_model", stored["ai"]["llamaserver_model"]
+            ),
+            "enable_thinking": _checkbox(form, "ai.enable_thinking"),
             "anthropic_api_key": _secret_or_existing(
                 form, "ai.anthropic_api_key", stored["ai"]["anthropic_api_key"]
             ),

@@ -115,6 +115,32 @@ def test_ai_settings_round_trip_through_the_form(logged_in_client, tmp_path) -> 
     assert 'value="999999"' in page.text
 
 
+def test_ai_llamaserver_and_thinking_toggle_round_trip_through_the_form(
+    logged_in_client, tmp_path
+) -> None:
+    form = dict(
+        BASE_FORM,
+        **{
+            "ai.provider": "llamaserver",
+            "ai.llamaserver_base_url": "http://athena.homelab:11435/v1",
+            "ai.llamaserver_model": "qwen3.5",
+            "ai.enable_thinking": "on",
+        },
+    )
+    response = logged_in_client.post("/settings", data=form)
+    assert response.status_code == 303
+    db_path = tmp_path / "skytracer.db"
+    assert _db_value(db_path, "ai.provider") == "llamaserver"
+    assert _db_value(db_path, "ai.llamaserver_base_url") == "http://athena.homelab:11435/v1"
+    assert _db_value(db_path, "ai.llamaserver_model") == "qwen3.5"
+    assert _db_value(db_path, "ai.enable_thinking") is True
+
+    # unchecking the box (omitting the field) must turn it back off
+    form_unchecked = dict(BASE_FORM, **{"ai.provider": "llamaserver"})
+    logged_in_client.post("/settings", data=form_unchecked)
+    assert _db_value(db_path, "ai.enable_thinking") is False
+
+
 def test_ai_secret_left_blank_keeps_existing_value(logged_in_client, tmp_path) -> None:
     form_with_token = dict(BASE_FORM, **{"ai.telegram_bot_token": "123:abc"})
     logged_in_client.post("/settings", data=form_with_token)

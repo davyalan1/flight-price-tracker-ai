@@ -15,6 +15,7 @@ import httpx
 class OllamaBackend:
     base_url: str = "http://localhost:11434/v1"
     model: str = "llama3"
+    thinking: bool = False
 
     def reply(self, system: str, question: str) -> str:
         response = httpx.post(
@@ -25,6 +26,9 @@ class OllamaBackend:
                     {"role": "system", "content": system},
                     {"role": "user", "content": question},
                 ],
+                # Ollama's own toggle for hybrid-reasoning models (distinct
+                # from llama-server's chat_template_kwargs shape below).
+                "think": self.thinking,
             },
             timeout=60,
         )

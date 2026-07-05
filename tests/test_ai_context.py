@@ -3,6 +3,7 @@ from __future__ import annotations
 from skytracer.ai.answer import build_backend
 from skytracer.ai.anthropic_backend import AnthropicBackend
 from skytracer.ai.context import build_grounding_context
+from skytracer.ai.llamaserver_backend import LlamaServerBackend
 from skytracer.ai.ollama_backend import OllamaBackend
 from skytracer.db import init_db
 from skytracer.models import FareResult, SearchQuery
@@ -47,3 +48,18 @@ def test_build_backend_picks_anthropic_when_configured() -> None:
     backend = build_backend(default_ai_config(provider="anthropic", anthropic_api_key="sk-test"))
     assert isinstance(backend, AnthropicBackend)
     assert backend.api_key == "sk-test"
+
+
+def test_build_backend_picks_llamaserver_when_configured() -> None:
+    backend = build_backend(
+        default_ai_config(
+            provider="llamaserver",
+            llamaserver_base_url="http://athena.homelab:11435/v1",
+            llamaserver_model="qwen3.5",
+            enable_thinking=True,
+        )
+    )
+    assert isinstance(backend, LlamaServerBackend)
+    assert backend.base_url == "http://athena.homelab:11435/v1"
+    assert backend.model == "qwen3.5"
+    assert backend.thinking is True

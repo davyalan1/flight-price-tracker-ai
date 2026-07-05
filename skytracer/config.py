@@ -159,7 +159,7 @@ class DashboardConfig:
     top_n_fares: int
 
 
-AI_PROVIDERS = {"ollama", "anthropic"}
+AI_PROVIDERS = {"ollama", "llamaserver", "anthropic"}
 
 
 @dataclass
@@ -167,6 +167,9 @@ class AiConfig:
     provider: str
     ollama_base_url: str
     ollama_model: str
+    llamaserver_base_url: str
+    llamaserver_model: str
+    enable_thinking: bool
     anthropic_api_key: str
     telegram_bot_token: str
     telegram_allowed_user_id: str
@@ -448,6 +451,11 @@ def validate(raw: dict) -> ValidationResult:
         )
     ai_ollama_base_url = str(ai_raw.get("ollama_base_url", "http://localhost:11434/v1"))
     ai_ollama_model = str(ai_raw.get("ollama_model", "llama3"))
+    ai_llamaserver_base_url = str(
+        ai_raw.get("llamaserver_base_url", "http://localhost:11435/v1")
+    )
+    ai_llamaserver_model = str(ai_raw.get("llamaserver_model", ""))
+    ai_enable_thinking = bool(ai_raw.get("enable_thinking", False))
     ai_anthropic_api_key = str(ai_raw.get("anthropic_api_key", ""))
     if ai_provider == "anthropic" and not ai_anthropic_api_key:
         warnings.append(
@@ -556,6 +564,9 @@ def validate(raw: dict) -> ValidationResult:
             provider=ai_provider,
             ollama_base_url=ai_ollama_base_url,
             ollama_model=ai_ollama_model,
+            llamaserver_base_url=ai_llamaserver_base_url,
+            llamaserver_model=ai_llamaserver_model,
+            enable_thinking=ai_enable_thinking,
             anthropic_api_key=ai_anthropic_api_key,
             telegram_bot_token=ai_telegram_bot_token,
             telegram_allowed_user_id=ai_telegram_allowed_user_id,
