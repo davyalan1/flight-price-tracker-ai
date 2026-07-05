@@ -36,4 +36,7 @@ class AnthropicBackend:
         )
         response.raise_for_status()
         blocks = response.json()["content"]
-        return "".join(block["text"] for block in blocks if block["type"] == "text")
+        text = "".join(block["text"] for block in blocks if block["type"] == "text")
+        if not text:
+            raise RuntimeError("Anthropic returned an empty response")
+        return text

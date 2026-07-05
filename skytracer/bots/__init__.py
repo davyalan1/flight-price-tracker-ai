@@ -9,11 +9,14 @@ CLI-stub philosophy elsewhere in this app (Phase 1's cli.py).
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 
 from skytracer.ai.answer import answer_question
 from skytracer.bots.replies import lowest_reply, status_reply
 from skytracer.config import AiConfig
+
+logger = logging.getLogger("skytracer.bots")
 
 
 def is_allowed(sender_id: str, allowed_id: str) -> bool:
@@ -33,4 +36,11 @@ def dispatch(conn: sqlite3.Connection, ai_config: AiConfig, text: str) -> str:
         return status_reply(conn)
     if command == "/lowest":
         return lowest_reply(conn)
-    return answer_question(conn, ai_config, text)
+    try:
+        return answer_question(conn, ai_config, text)
+    except Exception:
+        # Seen for real against a misbehaving local model server (empty
+        # content, 200 OK) — never let a bad LLM response reach a bot's
+        # send-message call as an empty string or an unhandled crash.
+        logger.exception("dispatch: LLM backend failed to answer %r", text)
+        return "Sorry, I couldn't get an answer just now — try /status or /lowest instead."

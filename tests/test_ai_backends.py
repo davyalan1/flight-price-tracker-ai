@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from skytracer.ai import anthropic_backend as anthropic_module
 from skytracer.ai import ollama_backend as ollama_module
 from skytracer.ai.anthropic_backend import AnthropicBackend
@@ -56,3 +58,28 @@ def test_anthropic_backend_posts_to_messages_api_with_system_and_question(monkey
     assert captured["headers"]["x-api-key"] == "sk-test"
     assert captured["json"]["system"] == "system prompt"
     assert captured["json"]["messages"] == [{"role": "user", "content": "what's the status?"}]
+
+
+def test_ollama_backend_raises_on_empty_content(monkeypatch) -> None:
+    # Seen for real against a misbehaving Ollama server: 200 OK, empty
+    # content, garbage in an unused "reasoning" field. Must not silently
+    # return "" — that would reach a bot's send-message call.
+    monkeypatch.setattr(
+        ollama_module.httpx,
+        "post",
+        lambda *a, **k: _JsonResponse(
+            {"choices": [{"message": {"content": "", "reasoning": "///"}}]}
+        ),
+    )
+    backend = OllamaBackend()
+    with pytest.raises(RuntimeError, match="empty"):
+        backend.reply("system prompt", "question")
+
+
+def test_anthropic_backend_raises_on_empty_content(monkeypatch) -> None:
+    monkeypatch.setattr(
+        anthropic_module.httpx, "post", lambda *a, **k: _JsonResponse({"content": []})
+    )
+    backend = AnthropicBackend(api_key="sk-test")
+    with pytest.raises(RuntimeError, match="empty"):
+        backend.reply("system prompt", "question")

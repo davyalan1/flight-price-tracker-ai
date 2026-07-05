@@ -78,3 +78,17 @@ def test_dispatch_falls_through_to_the_llm_for_anything_else(tmp_path, monkeypat
     result = dispatch(conn, ai_config, "any price drops recently?")
     assert result == "a grounded answer"
     assert calls == ["any price drops recently?"]
+
+
+def test_dispatch_falls_back_gracefully_when_the_llm_backend_fails(tmp_path, monkeypatch) -> None:
+    conn = init_db(tmp_path / "skytracer.db")
+    ai_config = default_ai_config()
+
+    def broken_answer_question(conn_arg, config_arg, question):
+        raise RuntimeError("Ollama returned an empty response")
+
+    monkeypatch.setattr("skytracer.bots.answer_question", broken_answer_question)
+
+    result = dispatch(conn, ai_config, "any price drops recently?")
+    assert "couldn't get an answer" in result
+    assert "/status" in result  # points the user at the reliable fallback commands

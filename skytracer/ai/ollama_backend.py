@@ -29,4 +29,11 @@ class OllamaBackend:
             timeout=60,
         )
         response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"] or ""
+        content = response.json()["choices"][0]["message"]["content"]
+        if not content:
+            # Seen for real against a misbehaving Ollama server: 200 OK,
+            # finish_reason null, empty content, garbage in a "reasoning"
+            # field — an empty string here would otherwise silently reach
+            # a bot's send-message call.
+            raise RuntimeError("Ollama returned an empty response")
+        return content
