@@ -170,6 +170,7 @@ class AiConfig:
     llamaserver_base_url: str
     llamaserver_model: str
     enable_thinking: bool
+    searxng_base_url: str
     anthropic_api_key: str
     telegram_bot_token: str
     telegram_allowed_user_id: str
@@ -456,6 +457,7 @@ def validate(raw: dict) -> ValidationResult:
     )
     ai_llamaserver_model = str(ai_raw.get("llamaserver_model", ""))
     ai_enable_thinking = bool(ai_raw.get("enable_thinking", False))
+    ai_searxng_base_url = str(ai_raw.get("searxng_base_url", ""))
     ai_anthropic_api_key = str(ai_raw.get("anthropic_api_key", ""))
     if ai_provider == "anthropic" and not ai_anthropic_api_key:
         warnings.append(
@@ -567,6 +569,7 @@ def validate(raw: dict) -> ValidationResult:
             llamaserver_base_url=ai_llamaserver_base_url,
             llamaserver_model=ai_llamaserver_model,
             enable_thinking=ai_enable_thinking,
+            searxng_base_url=ai_searxng_base_url,
             anthropic_api_key=ai_anthropic_api_key,
             telegram_bot_token=ai_telegram_bot_token,
             telegram_allowed_user_id=ai_telegram_allowed_user_id,

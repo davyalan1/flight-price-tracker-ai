@@ -130,6 +130,12 @@ llamaserver_model = ""
 # different request field for this internally; the setting is the same
 # either way.
 enable_thinking = false
+# Optional: a self-hosted SearXNG instance (https://docs.searxng.org/) URL,
+# e.g. "http://searxng.homelab:8888". When set, the model gets a real
+# search_web tool it can call for things the flight-price data doesn't
+# cover (news, weather, general facts) — used both by the Telegram/Discord
+# bots and the logged-in dashboard chat widget. Leave blank to disable.
+searxng_base_url = ""
 anthropic_api_key = ""       # only needed if provider = "anthropic"
 telegram_bot_token = ""      # from @BotFather
 telegram_allowed_user_id = ""  # your numeric Telegram user ID — the bot ignores everyone else

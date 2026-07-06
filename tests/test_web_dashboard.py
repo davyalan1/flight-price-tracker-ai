@@ -34,6 +34,16 @@ def _insert_observation(db_path, price: float, observed_at: str) -> None:
     conn.close()
 
 
+def test_dashboard_last_updated_is_marked_for_client_side_local_time(
+    web_client, tmp_path
+) -> None:
+    db_path = tmp_path / "skytracer.db"
+    _insert_observation(db_path, 1500.0, "2026-01-01T00:18:34+00:00")
+
+    response = web_client.get("/")
+    assert 'class="local-time" data-iso="2026-01-01T00:18:34+00:00"' in response.text
+
+
 def test_route_detail_renders_chart_with_enough_observations(web_client, tmp_path) -> None:
     db_path = tmp_path / "skytracer.db"
     _insert_observation(db_path, 1500.0, "2026-01-01T00:00:00+00:00")
@@ -62,3 +72,17 @@ def test_route_detail_shows_top_fares_and_route_map(web_client, tmp_path) -> Non
     assert "1500.00" in response.text
     assert "route-map" in response.text  # OKC/NRT are both in the vendored table
     assert "No alerts sent for this route yet" in response.text
+
+
+def test_route_detail_observed_at_is_marked_for_client_side_local_time(
+    web_client, tmp_path
+) -> None:
+    db_path = tmp_path / "skytracer.db"
+    _insert_observation(db_path, 1500.0, "2026-01-01T00:18:34+00:00")
+
+    response = web_client.get(f"/route/{ROUTE_KEY}")
+    # The raw UTC timestamp is rendered inside a data-iso attribute so
+    # base.html's shared JS can convert it to the visitor's local time —
+    # asserting the markup here, since a browser is what actually runs it.
+    assert 'class="local-time" data-iso="2026-01-01T00:18:34+00:00"' in response.text
+    assert "Observed</th>" in response.text  # no longer hardcoded "(UTC)"

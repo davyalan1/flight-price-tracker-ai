@@ -128,6 +128,10 @@
     <label for="llamaserver_model">llama-server model</label>
     <input type="text" id="llamaserver_model" name="ai.llamaserver_model" value="{{ values.ai.llamaserver_model }}" autocomplete="off">
 
+    <label for="searxng_base_url">SearXNG base URL (optional)</label>
+    <input type="text" id="searxng_base_url" name="ai.searxng_base_url" value="{{ values.ai.searxng_base_url }}" autocomplete="off" placeholder="http://searxng.homelab:8888">
+    <div class="hint">When set, gives the model a real web-search tool for things the flight-price data doesn't cover — used by the bots and the dashboard chat widget below.</div>
+
     <label for="anthropic_api_key">Anthropic API key {% if secrets_set['ai.anthropic_api_key'] %}<span class="masked">(•••• set — leave blank to keep)</span>{% endif %}</label>
     <input type="password" id="anthropic_api_key" name="ai.anthropic_api_key" placeholder="{{ '•••• set' if secrets_set['ai.anthropic_api_key'] else '' }}" autocomplete="off">
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import httpx
+from skytracer.ai.openai_compat import chat_with_tools
 
 
 @dataclass
@@ -17,22 +17,17 @@ class LlamaServerBackend:
     base_url: str = "http://localhost:11435/v1"
     model: str = "qwen3.5"
     thinking: bool = False
+    searxng_base_url: str = ""
 
     def reply(self, system: str, question: str) -> str:
-        response = httpx.post(
-            f"{self.base_url}/chat/completions",
-            json={
-                "model": self.model,
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": question},
-                ],
-                "chat_template_kwargs": {"enable_thinking": self.thinking},
-            },
-            timeout=60,
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": question},
+            ],
+            "chat_template_kwargs": {"enable_thinking": self.thinking},
+        }
+        return chat_with_tools(
+            f"{self.base_url}/chat/completions", payload, self.searxng_base_url
         )
-        response.raise_for_status()
-        content = response.json()["choices"][0]["message"]["content"]
-        if not content:
-            raise RuntimeError("llama-server returned an empty response")
-        return content

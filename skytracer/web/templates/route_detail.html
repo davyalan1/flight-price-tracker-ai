@@ -100,7 +100,7 @@
     {% for a in alert_history %}
     <li>
       <div class="t-price num">{{ "%.2f"|format(a.price) }}</div>
-      <div class="t-meta">{{ a.reason }} &middot; {{ a.sent_at }}</div>
+      <div class="t-meta">{{ a.reason }} &middot; <span class="local-time" data-iso="{{ a.sent_at }}">{{ a.sent_at }}</span></div>
     </li>
     {% endfor %}
   </ul>
@@ -113,11 +113,11 @@
   <h2>Recent observations</h2>
   {% if observations %}
   <table>
-    <thead><tr><th>Observed (UTC)</th><th>Price</th><th>Stops</th><th>Airlines</th><th>Source</th><th>Link</th></tr></thead>
+    <thead><tr><th>Observed</th><th>Price</th><th>Stops</th><th>Airlines</th><th>Source</th><th>Link</th></tr></thead>
     <tbody>
       {% for o in observations %}
       <tr>
-        <td>{{ o.observed_at }}</td>
+        <td class="local-time" data-iso="{{ o.observed_at }}">{{ o.observed_at }}</td>
         <td class="num">{{ o.currency }} {{ "%.2f"|format(o.price) }}</td>
         <td>{{ o.stops }}</td>
         <td>{{ o.airlines }}</td>

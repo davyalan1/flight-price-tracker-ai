@@ -19,5 +19,84 @@
   {% block content %}{% endblock %}
 </main>
 <footer>Skytracer — self-hosted flight price tracker</footer>
+
+<script>
+  // Server renders UTC timestamps (it has no idea what timezone a visitor
+  // is in); this converts them to the browser's local time, minute
+  // precision, on every page — the one bit of always-on JS in an
+  // otherwise dependency-free app, because there's no server-side way to
+  // know the visitor's timezone without it.
+  document.querySelectorAll(".local-time[data-iso]").forEach(function (el) {
+    var date = new Date(el.dataset.iso);
+    if (isNaN(date.getTime())) return;
+    el.textContent = date.toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  });
+</script>
+
+{% if logged_in %}
+<div id="chat-widget">
+  <button id="chat-toggle" aria-label="Open chat" aria-expanded="false">💬</button>
+  <div id="chat-panel" class="hidden">
+    <div id="chat-log"></div>
+    <form id="chat-form">
+      <input type="text" id="chat-input" placeholder="Ask about fares…" autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+  </div>
+</div>
+<script>
+  (function () {
+    var toggle = document.getElementById("chat-toggle");
+    var panel = document.getElementById("chat-panel");
+    var log = document.getElementById("chat-log");
+    var form = document.getElementById("chat-form");
+    var input = document.getElementById("chat-input");
+
+    toggle.addEventListener("click", function () {
+      var open = panel.classList.toggle("hidden") === false;
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+
+    function addMessage(text, who) {
+      var el = document.createElement("div");
+      el.className = "chat-msg chat-msg-" + who;
+      el.textContent = text;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var message = input.value.trim();
+      if (!message) return;
+      addMessage(message, "user");
+      input.value = "";
+      input.disabled = true;
+      fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: message }),
+      })
+        .then(function (response) {
+          if (!response.ok) throw new Error("request failed");
+          return response.json();
+        })
+        .then(function (data) {
+          addMessage(data.reply, "bot");
+        })
+        .catch(function () {
+          addMessage("Sorry, something went wrong asking that.", "bot");
+        })
+        .finally(function () {
+          input.disabled = false;
+          input.focus();
+        });
+    });
+  })();
+</script>
+{% endif %}
 </body>
 </html>

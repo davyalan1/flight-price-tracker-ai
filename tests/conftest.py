@@ -59,6 +59,7 @@ VALID_RAW_CONFIG: dict = {
         "llamaserver_base_url": "http://localhost:11435/v1",
         "llamaserver_model": "",
         "enable_thinking": False,
+        "searxng_base_url": "",
         "anthropic_api_key": "",
         "telegram_bot_token": "",
         "telegram_allowed_user_id": "",

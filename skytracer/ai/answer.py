@@ -15,29 +15,36 @@ from skytracer.ai.ollama_backend import OllamaBackend
 from skytracer.config import AiConfig
 
 SYSTEM_PROMPT_TEMPLATE = """You are a flight-price tracking assistant. Answer the \
-user's question using ONLY the data below — never invent or estimate a price, \
-date, or trend that isn't explicitly given. If the data doesn't cover what \
-they're asking, say so plainly instead of guessing. Keep answers short and \
-conversational, like a text message.
+user's question using ONLY the flight-price data below for anything about tracked \
+routes, fares, or alerts — never invent or estimate a price, date, or trend that \
+isn't explicitly given. If a search_web tool is available, use it only for things \
+this data doesn't cover (e.g. news, weather, general facts) — never to look up or \
+second-guess a flight price. If neither the data nor a search covers what they're \
+asking, say so plainly instead of guessing. Keep answers short and conversational, \
+like a text message.
 
-DATA:
+FLIGHT-PRICE DATA:
 {context}
 """
 
 
 def build_backend(config: AiConfig) -> LLMBackend:
     if config.provider == "anthropic":
-        return AnthropicBackend(api_key=config.anthropic_api_key)
+        return AnthropicBackend(
+            api_key=config.anthropic_api_key, searxng_base_url=config.searxng_base_url
+        )
     if config.provider == "llamaserver":
         return LlamaServerBackend(
             base_url=config.llamaserver_base_url,
             model=config.llamaserver_model,
             thinking=config.enable_thinking,
+            searxng_base_url=config.searxng_base_url,
         )
     return OllamaBackend(
         base_url=config.ollama_base_url,
         model=config.ollama_model,
         thinking=config.enable_thinking,
+        searxng_base_url=config.searxng_base_url,
     )
 
 

@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from skytracer.web import routes_auth, routes_dashboard, routes_settings
+from skytracer.web import routes_auth, routes_chat, routes_dashboard, routes_settings
 
 
 def create_app() -> FastAPI:
@@ -20,4 +20,5 @@ def create_app() -> FastAPI:
     app.include_router(routes_auth.router)
     app.include_router(routes_settings.router)
     app.include_router(routes_dashboard.router)
+    app.include_router(routes_chat.router)
     return app

@@ -20,7 +20,7 @@
     </div>
     <div class="route-meta">
       <span>{{ r.source }}</span>
-      <span>{{ r.last_updated }}</span>
+      <span class="local-time" data-iso="{{ r.last_updated }}">{{ r.last_updated }}</span>
     </div>
   </a>
   {% endfor %}

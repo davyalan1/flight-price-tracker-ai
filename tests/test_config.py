@@ -36,6 +36,7 @@ def test_ai_defaults_to_ollama_when_ai_section_missing(valid_raw_config: dict) -
     assert result.config.ai.ollama_base_url == "http://localhost:11434/v1"
     assert result.config.ai.llamaserver_base_url == "http://localhost:11435/v1"
     assert result.config.ai.enable_thinking is False
+    assert result.config.ai.searxng_base_url == ""
 
 
 def test_ai_llamaserver_is_a_valid_provider(valid_raw_config: dict) -> None:

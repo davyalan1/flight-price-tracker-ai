@@ -115,6 +115,9 @@ def backfill_missing(conn: sqlite3.Connection) -> None:
         set(conn, "ai.llamaserver_base_url", "http://localhost:11435/v1")
         set(conn, "ai.llamaserver_model", "")
         set(conn, "ai.enable_thinking", False)
+    # Added after the llamaserver rollout — same reasoning as above.
+    if get(conn, "ai.searxng_base_url", None) is None:
+        set(conn, "ai.searxng_base_url", "")
 
 
 def as_dict(conn: sqlite3.Connection) -> dict[str, Any]:

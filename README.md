@@ -51,7 +51,12 @@ like `http://<box-ip>:8087`. Everything you'd want to change happens on the
      answers read better as a chat message); Ollama and llama-server each
      use their own request format for this internally, but the one
      checkbox covers both. Each bot only starts once its token is set; see
-     "Installing" below for enabling the service.
+     "Installing" below for enabling the service. Optionally, add a
+     self-hosted [SearXNG](https://docs.searxng.org/) base URL to give the
+     model a real web-search tool for anything the flight-price data
+     doesn't cover — once set, a floating chat widget also appears in the
+     bottom-right corner of every page (only visible once you're logged
+     in, since it costs real compute/API calls to use).
    - **Security** — change your password here.
    - **Actions** — **"Run a check now"** if you don't want to wait for the
      next scheduled check.

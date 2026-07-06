@@ -247,6 +247,9 @@ def _merge_settings_from_form(form: FormData, stored: dict) -> dict:
                 "ai.llamaserver_model", stored["ai"]["llamaserver_model"]
             ),
             "enable_thinking": _checkbox(form, "ai.enable_thinking"),
+            "searxng_base_url": form.get(
+                "ai.searxng_base_url", stored["ai"]["searxng_base_url"]
+            ),
             "anthropic_api_key": _secret_or_existing(
                 form, "ai.anthropic_api_key", stored["ai"]["anthropic_api_key"]
             ),
