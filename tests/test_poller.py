@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import logging
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -54,10 +55,10 @@ def test_run_poll_once_stores_top_n_fares_ranked_by_price(
     tmp_path, monkeypatch, valid_raw_config: dict
 ) -> None:
     valid_raw_config["dashboard"]["top_n_fares"] = 2
-    valid_raw_config["trip"]["fixed"] = {
+    valid_raw_config["trips"][0]["trip"]["fixed"] = {
         "enabled": True, "depart_date": "2026-09-01", "return_date": "2026-09-11"
     }
-    valid_raw_config["trip"]["flexible"]["enabled"] = False
+    valid_raw_config["trips"][0]["trip"]["flexible"]["enabled"] = False
     conn = _seeded_conn(tmp_path, valid_raw_config)
     fakes = [
         _fake_flight(1579.0, ["OKC", "DEN", "NRT"], ["United"]),
@@ -113,8 +114,8 @@ def test_run_poll_once_source_exception_does_not_crash(
 def test_run_poll_once_uses_fixed_dates_when_enabled(
     tmp_path, monkeypatch, valid_raw_config: dict
 ) -> None:
-    valid_raw_config["trip"]["flexible"]["enabled"] = False
-    valid_raw_config["trip"]["fixed"] = {
+    valid_raw_config["trips"][0]["trip"]["flexible"]["enabled"] = False
+    valid_raw_config["trips"][0]["trip"]["fixed"] = {
         "enabled": True,
         "depart_date": "2026-10-01",
         "return_date": "2026-10-11",
@@ -135,21 +136,21 @@ def test_run_poll_once_uses_fixed_dates_when_enabled(
 
 
 def test_resolve_queries_fixed_trip_returns_one_query(valid_raw_config: dict) -> None:
-    valid_raw_config["trip"]["flexible"]["enabled"] = False
-    valid_raw_config["trip"]["fixed"] = {
+    valid_raw_config["trips"][0]["trip"]["flexible"]["enabled"] = False
+    valid_raw_config["trips"][0]["trip"]["fixed"] = {
         "enabled": True,
         "depart_date": "2026-10-01",
         "return_date": "2026-10-11",
     }
     config = validate(valid_raw_config).config
-    queries = _resolve_queries(config.trip)
+    queries = _resolve_queries(config.trips[0].trip)
     assert len(queries) == 1
     assert queries[0].depart_date == "2026-10-01"
     assert queries[0].return_date == "2026-10-11"
 
 
 def test_resolve_queries_flexible_trip_samples_every_step(valid_raw_config: dict) -> None:
-    valid_raw_config["trip"]["flexible"] = {
+    valid_raw_config["trips"][0]["trip"]["flexible"] = {
         "enabled": True,
         "earliest_depart": "2026-09-01",
         "latest_depart": "2026-09-10",
@@ -157,7 +158,7 @@ def test_resolve_queries_flexible_trip_samples_every_step(valid_raw_config: dict
         "scan_step_days": 3,
     }
     config = validate(valid_raw_config).config
-    queries = _resolve_queries(config.trip)
+    queries = _resolve_queries(config.trips[0].trip)
 
     assert [q.depart_date for q in queries] == [
         "2026-09-01",
@@ -172,7 +173,7 @@ def test_resolve_queries_flexible_trip_samples_every_step(valid_raw_config: dict
 def test_run_poll_once_picks_cheapest_across_sampled_dates(
     tmp_path, monkeypatch, valid_raw_config: dict
 ) -> None:
-    valid_raw_config["trip"]["flexible"] = {
+    valid_raw_config["trips"][0]["trip"]["flexible"] = {
         "enabled": True,
         "earliest_depart": "2026-09-01",
         "latest_depart": "2026-09-10",
@@ -349,7 +350,7 @@ class _FakeNotifier:
 def test_run_poll_once_fires_alert_on_threshold_cross(
     tmp_path, monkeypatch, valid_raw_config: dict
 ) -> None:
-    valid_raw_config["alerts"]["threshold_price"] = 600.0
+    valid_raw_config["trips"][0]["alerts"]["threshold_price"] = 600.0
     conn = _seeded_conn(tmp_path, valid_raw_config)
     monkeypatch.setattr(
         google_module.ff, "get_flights", lambda q: [_fake_flight(500.0, ["OKC", "NRT"], ["ANA"])]
@@ -365,8 +366,8 @@ def test_run_poll_once_fires_alert_on_threshold_cross(
 def test_run_poll_once_alert_respects_cooldown_across_polls(
     tmp_path, monkeypatch, valid_raw_config: dict
 ) -> None:
-    valid_raw_config["alerts"]["threshold_price"] = 600.0
-    valid_raw_config["alerts"]["cooldown_hours"] = 12
+    valid_raw_config["trips"][0]["alerts"]["threshold_price"] = 600.0
+    valid_raw_config["trips"][0]["alerts"]["cooldown_hours"] = 12
     conn = _seeded_conn(tmp_path, valid_raw_config)
     monkeypatch.setattr(
         google_module.ff, "get_flights", lambda q: [_fake_flight(500.0, ["OKC", "NRT"], ["ANA"])]
@@ -386,7 +387,7 @@ def test_run_poll_once_alert_not_suppressed_after_failed_send_retries_next_poll(
     so a real send fails. That failure must NOT burn the cooldown — the
     very next poll should try (and, with a working notifier, succeed) again.
     """
-    valid_raw_config["alerts"]["threshold_price"] = 600.0
+    valid_raw_config["trips"][0]["alerts"]["threshold_price"] = 600.0
     conn = _seeded_conn(tmp_path, valid_raw_config)
     monkeypatch.setattr(
         google_module.ff, "get_flights", lambda q: [_fake_flight(500.0, ["OKC", "NRT"], ["ANA"])]
@@ -404,7 +405,7 @@ def test_run_poll_once_alert_not_suppressed_after_failed_send_retries_next_poll(
 def test_run_poll_once_sends_notification_when_alert_fires(
     tmp_path, monkeypatch, valid_raw_config: dict
 ) -> None:
-    valid_raw_config["alerts"]["threshold_price"] = 600.0
+    valid_raw_config["trips"][0]["alerts"]["threshold_price"] = 600.0
     conn = _seeded_conn(tmp_path, valid_raw_config)
     monkeypatch.setattr(
         google_module.ff, "get_flights", lambda q: [_fake_flight(500.0, ["OKC", "NRT"], ["ANA"])]
@@ -426,10 +427,74 @@ def test_run_poll_once_sends_notification_when_alert_fires(
     assert sent["alert"].dashboard_url is not None
 
 
+def test_run_poll_once_zero_trips_does_not_crash(tmp_path, valid_raw_config: dict) -> None:
+    valid_raw_config["trips"] = []
+    conn = _seeded_conn(tmp_path, valid_raw_config)
+
+    run_poll_once(conn)  # nothing configured -> log and return, not raise
+
+    assert conn.execute("SELECT COUNT(*) FROM observations").fetchone()[0] == 0
+    assert settings_store.get(conn, watchdog.CONSECUTIVE_FAILURES_KEY, 0) == 0
+
+
+def test_run_poll_once_one_trip_failing_does_not_trip_watchdog(
+    tmp_path, monkeypatch, valid_raw_config: dict
+) -> None:
+    """Two trips, one comes up empty every poll — the watchdog must stay
+    reset (this is a partial failure, not the whole tracker being broken),
+    and no "tracker is broken" notification should fire.
+    """
+    second_trip = copy.deepcopy(valid_raw_config["trips"][0])
+    second_trip["trip"]["origin"] = "DFW"
+    second_trip["trip"]["destination"] = "LHR"
+    valid_raw_config["trips"].append(second_trip)
+    conn = _seeded_conn(tmp_path, valid_raw_config)
+
+    def only_okc_has_fares(q):
+        if q._flights[0].from_airport == "OKC":
+            return [_fake_flight(500.0, ["OKC", "NRT"], ["ANA"])]
+        return []
+
+    monkeypatch.setattr(google_module.ff, "get_flights", only_okc_has_fares)
+    monkeypatch.setattr(google_module.time, "sleep", lambda _s: None)
+    fake_notifier = _FakeNotifier()
+    monkeypatch.setattr(poller, "build_notifier", lambda config: fake_notifier)
+
+    for _ in range(watchdog.CONSECUTIVE_FAILURE_THRESHOLD + 2):
+        run_poll_once(conn)
+
+    assert settings_store.get(conn, watchdog.CONSECUTIVE_FAILURES_KEY) == 0
+    assert not any("tracker is broken" in s for s in fake_notifier.sent if isinstance(s, str))
+
+    routes = {
+        row["route_key"]
+        for row in conn.execute("SELECT DISTINCT route_key FROM observations")
+    }
+    assert len(routes) == 1  # only the OKC->NRT trip ever stored anything
+
+
+def test_run_poll_once_all_trips_failing_still_trips_watchdog(
+    tmp_path, monkeypatch, valid_raw_config: dict
+) -> None:
+    second_trip = copy.deepcopy(valid_raw_config["trips"][0])
+    second_trip["trip"]["origin"] = "DFW"
+    second_trip["trip"]["destination"] = "LHR"
+    valid_raw_config["trips"].append(second_trip)
+    conn = _seeded_conn(tmp_path, valid_raw_config)
+    monkeypatch.setattr(google_module.ff, "get_flights", lambda q: [])
+    monkeypatch.setattr(google_module.time, "sleep", lambda _s: None)
+
+    for _ in range(watchdog.CONSECUTIVE_FAILURE_THRESHOLD):
+        run_poll_once(conn)
+
+    failures = settings_store.get(conn, watchdog.CONSECUTIVE_FAILURES_KEY)
+    assert failures == watchdog.CONSECUTIVE_FAILURE_THRESHOLD
+
+
 def test_run_poll_once_notification_failure_does_not_crash(
     tmp_path, monkeypatch, valid_raw_config: dict
 ) -> None:
-    valid_raw_config["alerts"]["threshold_price"] = 600.0
+    valid_raw_config["trips"][0]["alerts"]["threshold_price"] = 600.0
     conn = _seeded_conn(tmp_path, valid_raw_config)
     monkeypatch.setattr(
         google_module.ff, "get_flights", lambda q: [_fake_flight(500.0, ["OKC", "NRT"], ["ANA"])]

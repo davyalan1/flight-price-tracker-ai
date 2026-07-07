@@ -83,7 +83,7 @@ def test_settings_accessible_after_login(web_client) -> None:
     )
     response = web_client.get("/settings")
     assert response.status_code == 200
-    assert "<h2>Trip</h2>" in response.text
+    assert "Trip 1" in response.text
 
 
 def test_logout_clears_session(web_client) -> None:

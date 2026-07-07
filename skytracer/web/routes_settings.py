@@ -8,6 +8,7 @@ full-form save.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from collections.abc import Callable
 from typing import Any
@@ -36,18 +37,6 @@ router = APIRouter()
 
 FIELD_TOKENS = sorted(
     [
-        "trip.origin",
-        "trip.destination",
-        "trip.adults",
-        "trip.cabin",
-        "trip.currency",
-        "trip.fixed.depart_date",
-        "trip.fixed.return_date",
-        "trip.flexible.earliest_depart",
-        "trip.flexible.latest_depart",
-        "alerts.threshold_price",
-        "alerts.drop_percent",
-        "alerts.cooldown_hours",
         "schedule.every_hours",
         "dashboard.top_n_fares",
         "ai.provider",
@@ -61,12 +50,29 @@ FIELD_TOKENS = sorted(
     reverse=True,
 )
 
+# Matches validate()'s per-trip error prefix, e.g. "trips[0].origin: ..." or
+# "trips[0].alerts.threshold_price must be ..." or the bare
+# "trips[0]: enable exactly one of fixed or flexible ..." — captures the
+# index and (if present) the dotted field path so each error can be
+# attached to the right trip card and field, not just a general banner.
+_TRIP_ERROR_RE = re.compile(r"^trips\[(\d+)\](?:\.([\w.]+))?")
+
 
 def _map_errors_to_fields(messages: list[str]) -> dict[str, list[str]]:
     field_errors: dict[str, list[str]] = {}
     for message in messages:
-        matched = next((token for token in FIELD_TOKENS if token in message), "_general")
-        field_errors.setdefault(matched, []).append(message)
+        trip_match = _TRIP_ERROR_RE.match(message)
+        if trip_match:
+            index, field = trip_match.groups()
+            if field is None:
+                key = f"trips.{index}"
+            elif field.startswith("alerts."):
+                key = f"trips.{index}.{field}"
+            else:
+                key = f"trips.{index}.trip.{field}"
+        else:
+            key = next((token for token in FIELD_TOKENS if token in message), "_general")
+        field_errors.setdefault(key, []).append(message)
     return field_errors
 
 
@@ -105,58 +111,122 @@ def _secrets_set(conn: sqlite3.Connection) -> dict[str, bool]:
     }
 
 
-def _merge_settings_from_form(form: FormData, stored: dict) -> dict:
-    mode = form.get("trip.mode", "fixed" if stored["trip"]["fixed"]["enabled"] else "flexible")
+_TRIP_INDEX_RE = re.compile(r"^trips\.(\d+)\.")
+
+
+def _blank_trip_entry() -> dict:
+    """Defaults for a freshly-added trip card — enough to render sensibly,
+    but origin/destination are deliberately blank so the user must fill
+    them in (and validate() will reject an empty save) rather than silently
+    tracking a copy of the previous trip.
+    """
     return {
         "trip": {
-            "origin": str(form.get("trip.origin", stored["trip"]["origin"])).upper(),
-            "destination": str(form.get("trip.destination", stored["trip"]["destination"])).upper(),
-            "adults": _coerce_int(form.get("trip.adults", stored["trip"]["adults"])),
-            "cabin": form.get("trip.cabin", stored["trip"]["cabin"]),
-            "currency": str(form.get("trip.currency", stored["trip"]["currency"])).upper(),
+            "origin": "",
+            "destination": "",
+            "adults": 1,
+            "cabin": "economy",
+            "currency": "USD",
+            "fixed": {"enabled": True, "depart_date": "", "return_date": ""},
+            "flexible": {
+                "enabled": False,
+                "earliest_depart": "",
+                "latest_depart": "",
+                "trip_length_days": 7,
+                "scan_step_days": 3,
+            },
+        },
+        "alerts": {
+            "threshold_price": 1000,
+            "drop_percent": 5,
+            "notify_on_new_low": True,
+            "cooldown_hours": 12,
+        },
+    }
+
+
+def _merge_one_trip(form: FormData, index: int, existing: dict) -> dict:
+    prefix = f"trips.{index}."
+    default_mode = "fixed" if existing["trip"]["fixed"]["enabled"] else "flexible"
+    mode = form.get(f"{prefix}mode", default_mode)
+    return {
+        "trip": {
+            "origin": str(form.get(f"{prefix}trip.origin", existing["trip"]["origin"])).upper(),
+            "destination": str(
+                form.get(f"{prefix}trip.destination", existing["trip"]["destination"])
+            ).upper(),
+            "adults": _coerce_int(form.get(f"{prefix}trip.adults", existing["trip"]["adults"])),
+            "cabin": form.get(f"{prefix}trip.cabin", existing["trip"]["cabin"]),
+            "currency": str(
+                form.get(f"{prefix}trip.currency", existing["trip"]["currency"])
+            ).upper(),
             "fixed": {
                 "enabled": mode == "fixed",
                 "depart_date": form.get(
-                    "trip.fixed.depart_date", stored["trip"]["fixed"]["depart_date"]
+                    f"{prefix}trip.fixed.depart_date", existing["trip"]["fixed"]["depart_date"]
                 ),
                 "return_date": form.get(
-                    "trip.fixed.return_date", stored["trip"]["fixed"]["return_date"]
+                    f"{prefix}trip.fixed.return_date", existing["trip"]["fixed"]["return_date"]
                 ),
             },
             "flexible": {
                 "enabled": mode == "flexible",
                 "earliest_depart": form.get(
-                    "trip.flexible.earliest_depart", stored["trip"]["flexible"]["earliest_depart"]
+                    f"{prefix}trip.flexible.earliest_depart",
+                    existing["trip"]["flexible"]["earliest_depart"],
                 ),
                 "latest_depart": form.get(
-                    "trip.flexible.latest_depart", stored["trip"]["flexible"]["latest_depart"]
+                    f"{prefix}trip.flexible.latest_depart",
+                    existing["trip"]["flexible"]["latest_depart"],
                 ),
                 "trip_length_days": _coerce_int(
                     form.get(
-                        "trip.flexible.trip_length_days",
-                        stored["trip"]["flexible"]["trip_length_days"],
+                        f"{prefix}trip.flexible.trip_length_days",
+                        existing["trip"]["flexible"]["trip_length_days"],
                     )
                 ),
                 "scan_step_days": _coerce_int(
                     form.get(
-                        "trip.flexible.scan_step_days",
-                        stored["trip"]["flexible"]["scan_step_days"],
+                        f"{prefix}trip.flexible.scan_step_days",
+                        existing["trip"]["flexible"]["scan_step_days"],
                     )
                 ),
             },
         },
         "alerts": {
             "threshold_price": _coerce_number(
-                form.get("alerts.threshold_price", stored["alerts"]["threshold_price"])
+                form.get(f"{prefix}alerts.threshold_price", existing["alerts"]["threshold_price"])
             ),
             "drop_percent": _coerce_number(
-                form.get("alerts.drop_percent", stored["alerts"]["drop_percent"])
+                form.get(f"{prefix}alerts.drop_percent", existing["alerts"]["drop_percent"])
             ),
-            "notify_on_new_low": _checkbox(form, "alerts.notify_on_new_low"),
+            "notify_on_new_low": _checkbox(form, f"{prefix}alerts.notify_on_new_low"),
             "cooldown_hours": _coerce_number(
-                form.get("alerts.cooldown_hours", stored["alerts"]["cooldown_hours"])
+                form.get(f"{prefix}alerts.cooldown_hours", existing["alerts"]["cooldown_hours"])
             ),
         },
+    }
+
+
+def _merge_trips_from_form(form: FormData, stored_trips: list[dict]) -> list[dict]:
+    """Discover which trip indices were actually submitted (from the field
+    names themselves, e.g. "trips.0.trip.origin") rather than assuming the
+    stored count — the form is the source of truth for how many trip cards
+    exist right now, since add-trip/remove-trip change that count between
+    page loads.
+    """
+    indices = sorted({int(m.group(1)) for key in form if (m := _TRIP_INDEX_RE.match(key))})
+    return [
+        _merge_one_trip(
+            form, i, stored_trips[i] if i < len(stored_trips) else _blank_trip_entry()
+        )
+        for i in indices
+    ]
+
+
+def _merge_settings_from_form(form: FormData, stored: dict) -> dict:
+    return {
+        "trips": _merge_trips_from_form(form, stored["trips"]),
         "schedule": {
             "every_hours": _coerce_number(
                 form.get("schedule.every_hours", stored["schedule"]["every_hours"])
@@ -358,11 +428,18 @@ async def settings_submit(request: Request, conn: SettingsConnDep):
     if "test_notify" in form:
         try:
             test_config = validate(merged).config.notify
+            first_trip = merged["trips"][0]["trip"] if merged["trips"] else None
+            route = (
+                f"{first_trip['origin']} → {first_trip['destination']} (test)"
+                if first_trip
+                else "No trips configured (test)"
+            )
+            currency = first_trip["currency"] if first_trip else "USD"
             alert = Alert(
                 route_key="test",
-                route=f"{merged['trip']['origin']} → {merged['trip']['destination']} (test)",
+                route=route,
                 price=999.0,
-                currency=merged["trip"]["currency"],
+                currency=currency,
                 reasons=["test"],
                 all_time_low=999.0,
                 deep_link="https://www.google.com/travel/flights",
@@ -413,6 +490,28 @@ async def settings_submit(request: Request, conn: SettingsConnDep):
 
     save_config(conn, result.config)
     return RedirectResponse("/settings?flash=Settings saved.", status_code=303)
+
+
+@router.post("/settings/add-trip")
+def add_trip(conn: SettingsConnDep) -> RedirectResponse:
+    """Append one blank trip card. Bypasses full validate() deliberately —
+    a freshly-added trip has an empty origin/destination and shouldn't be
+    forced through IATA-code validation just to exist on the page; the real
+    Save button still validates everything when the user is done editing it.
+    """
+    trips = settings_store.get(conn, "trips", [])
+    trips.append(_blank_trip_entry())
+    settings_store.set(conn, "trips", trips)
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/remove-trip/{index}")
+def remove_trip(index: int, conn: SettingsConnDep) -> RedirectResponse:
+    trips = settings_store.get(conn, "trips", [])
+    if 0 <= index < len(trips):
+        trips.pop(index)
+        settings_store.set(conn, "trips", trips)
+    return RedirectResponse("/settings", status_code=303)
 
 
 @router.post("/settings/security")

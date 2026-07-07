@@ -118,6 +118,26 @@ def backfill_missing(conn: sqlite3.Connection) -> None:
     # Added after the llamaserver rollout — same reasoning as above.
     if get(conn, "ai.searxng_base_url", None) is None:
         set(conn, "ai.searxng_base_url", "")
+    # Multi-trip tracking replaced the single top-level `trip`/`alerts` keys
+    # with a `trips` list — any install seeded before that change still has
+    # the old flat keys and no `trips` key at all. Wrap them into a
+    # single-entry list so the existing trip/alerts carry over exactly, with
+    # zero data loss. An install already migrated (including one where every
+    # trip has since been removed via the Settings page, leaving
+    # `trips == []`) must NOT be re-migrated — checking for the key's mere
+    # presence, not its content, is what makes that safe.
+    if get(conn, "trips", None) is None:
+        all_rows = dict(conn.execute("SELECT key, value FROM settings"))
+        legacy_trip = unflatten(
+            {k: v for k, v in all_rows.items() if k.startswith("trip.")}
+        ).get("trip")
+        legacy_alerts = unflatten(
+            {k: v for k, v in all_rows.items() if k.startswith("alerts.")}
+        ).get("alerts")
+        if legacy_trip is not None and legacy_alerts is not None:
+            set(conn, "trips", [{"trip": legacy_trip, "alerts": legacy_alerts}])
+        else:
+            set(conn, "trips", [])
 
 
 def as_dict(conn: sqlite3.Connection) -> dict[str, Any]:

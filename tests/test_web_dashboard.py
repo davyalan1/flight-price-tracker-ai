@@ -44,6 +44,47 @@ def test_dashboard_last_updated_is_marked_for_client_side_local_time(
     assert 'class="local-time" data-iso="2026-01-01T00:18:34+00:00"' in response.text
 
 
+def test_dashboard_shows_two_tracked_routes_as_separate_rows(web_client, tmp_path) -> None:
+    """Multi-trip regression lock-in: the dashboard lists routes straight
+    from distinct observation route_keys, so two tracked trips must each
+    get their own board row.
+    """
+    db_path = tmp_path / "skytracer.db"
+    _insert_observation(db_path, 1500.0, "2026-01-01T00:00:00+00:00")
+
+    conn = init_db(db_path)
+    second_key = "TUL-HND-economy-2026-10-01_2026-10-11"
+    query = SearchQuery(
+        origin="TUL",
+        destination="HND",
+        depart_date="2026-10-01",
+        return_date="2026-10-11",
+        adults=1,
+        cabin="economy",
+        currency="USD",
+    )
+    result = FareResult(
+        price=800.0,
+        currency="USD",
+        airlines=["ANA"],
+        stops=0,
+        duration_min=780,
+        route="TUL → HND",
+        source="google",
+        deep_link="https://example.com/tul",
+    )
+    insert_observation(
+        conn, route_key=second_key, query=query, result=result,
+        observed_at="2026-01-01T01:00:00+00:00",
+    )
+    conn.close()
+
+    response = web_client.get("/")
+    assert response.status_code == 200
+    assert f'href="/route/{ROUTE_KEY}"' in response.text
+    assert f'href="/route/{second_key}"' in response.text
+
+
 def test_route_detail_renders_chart_with_enough_observations(web_client, tmp_path) -> None:
     db_path = tmp_path / "skytracer.db"
     _insert_observation(db_path, 1500.0, "2026-01-01T00:00:00+00:00")

@@ -19,7 +19,7 @@ import sqlite3
 from datetime import UTC, date, datetime, timedelta
 
 from skytracer import alerts, settings_store, stats, watchdog
-from skytracer.config import Config, TripConfig
+from skytracer.config import Config, TripConfig, TripEntry
 from skytracer.models import Alert, FareResult, SearchQuery, route_key_for_trip
 from skytracer.notify import build_notifier
 from skytracer.observations import fetch_price_points, insert_observation
@@ -111,38 +111,36 @@ def _note_failure(conn: sqlite3.Connection, config: Config) -> None:
         )
 
 
-def run_poll_once(conn: sqlite3.Connection) -> None:
-    config = as_config(conn)
-    # Stamped unconditionally (even on later failure) so pacing is based on
-    # the last *attempt*, not the last success — otherwise a broken source
-    # would make is_poll_due() true on every single systemd timer tick.
-    settings_store.set(conn, LAST_POLL_AT_KEY, datetime.now(UTC).isoformat())
-    queries = _resolve_queries(config.trip)
-
-    sources = build_enabled_sources(config.sources)
-    if not sources:
-        logger.error("poll: no fare sources are enabled — nothing to do")
-        _note_failure(conn, config)
-        return
-
+def _poll_trip(
+    conn: sqlite3.Connection, config: Config, entry: TripEntry, sources: list
+) -> bool:
+    """Search, store (top-N), and alert for one tracked trip. Returns
+    whether it found (and stored) at least one fare — False just means this
+    trip's search came up empty, not that the whole poll failed (see
+    run_poll_once, which only fires the "tracker is broken" watchdog if
+    every trip fails)."""
+    queries = _resolve_queries(entry.trip)
     logger.info(
-        "poll: searching %d source(s) across %d sampled date(s)", len(sources), len(queries)
+        "poll: searching %d source(s) across %d sampled date(s) for %s -> %s",
+        len(sources),
+        len(queries),
+        entry.trip.origin,
+        entry.trip.destination,
     )
     results: list[tuple[SearchQuery, FareResult]] = [
         (query, fare) for query in queries for fare in search_all(sources, query)
     ]
     if not results:
-        logger.error(
+        logger.warning(
             "poll: no enabled source returned any fares for %s -> %s across %d sampled date(s)",
-            config.trip.origin,
-            config.trip.destination,
+            entry.trip.origin,
+            entry.trip.destination,
             len(queries),
         )
-        _note_failure(conn, config)
-        return
+        return False
 
     results.sort(key=lambda pair: pair[1].price)
-    route_key = route_key_for_trip(config.trip)
+    route_key = route_key_for_trip(entry.trip)
     observed_at = datetime.now(UTC).isoformat()
     top_n = results[: config.dashboard.top_n_fares]
     for rank, (query, fare) in enumerate(top_n):
@@ -155,7 +153,6 @@ def run_poll_once(conn: sqlite3.Connection) -> None:
             rank=rank,
         )
     query, cheapest = top_n[0]
-    watchdog.record_success(conn)
 
     logger.info(
         "poll: stored %s %.2f via %s (%d stop(s), route %s) — %s",
@@ -168,9 +165,9 @@ def run_poll_once(conn: sqlite3.Connection) -> None:
     )
 
     points = fetch_price_points(conn, route_key)
-    fired = alerts.decide_alert(conn, route_key=route_key, points=points, config=config.alerts)
+    fired = alerts.decide_alert(conn, route_key=route_key, points=points, config=entry.alerts)
     if not fired:
-        return
+        return True
 
     logger.info(
         "poll: alert(s) triggered for %s: %s (price %.2f)",
@@ -199,7 +196,41 @@ def run_poll_once(conn: sqlite3.Connection) -> None:
             "retries next poll instead of silently eating the cooldown window",
             config.notify.channel,
         )
-        return
+        return True
 
     # Only start the cooldown clock once delivery actually succeeded.
     alerts.record_alert_sent(conn, route_key=route_key, reasons=fired, price=cheapest.price)
+    return True
+
+
+def run_poll_once(conn: sqlite3.Connection) -> None:
+    config = as_config(conn)
+    # Stamped unconditionally (even on later failure) so pacing is based on
+    # the last *attempt*, not the last success — otherwise a broken source
+    # would make is_poll_due() true on every single systemd timer tick.
+    settings_store.set(conn, LAST_POLL_AT_KEY, datetime.now(UTC).isoformat())
+
+    if not config.trips:
+        logger.info("poll: no trips configured — nothing to do")
+        return
+
+    sources = build_enabled_sources(config.sources)
+    if not sources:
+        logger.error("poll: no fare sources are enabled — nothing to do")
+        _note_failure(conn, config)
+        return
+
+    # A poll only counts as a full failure (tripping the watchdog) if every
+    # tracked trip came up empty — one route having a bad night shouldn't
+    # spam a "tracker is broken" alert while the others are working fine.
+    succeeded = [_poll_trip(conn, config, entry, sources) for entry in config.trips]
+    if not any(succeeded):
+        _note_failure(conn, config)
+        return
+    watchdog.record_success(conn)
+    if not all(succeeded):
+        logger.warning(
+            "poll: %d of %d trip(s) failed to return a fare this cycle",
+            succeeded.count(False),
+            len(succeeded),
+        )

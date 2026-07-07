@@ -10,78 +10,89 @@
 {% endif %}
 
 <form method="post" action="/settings">
+  {% for entry in values.trips %}
   <div class="card">
-    <h2>Trip</h2>
-    <label for="origin">Origin airport</label>
-    <input type="text" id="origin" name="trip.origin" value="{{ values.trip.origin }}" maxlength="3" required>
-    {% for msg in errors.get('trip.origin', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    <h2>
+      Trip {{ loop.index }}
+      {% if values.trips|length > 1 %}
+      <button type="submit" formaction="/settings/remove-trip/{{ loop.index0 }}" formnovalidate class="secondary" style="float:right;">Remove</button>
+      {% endif %}
+    </h2>
+    {% for msg in errors.get('trips.' ~ loop.index0, []) %}<div class="error">{{ msg }}</div>{% endfor %}
 
-    <label for="destination">Destination airport</label>
-    <input type="text" id="destination" name="trip.destination" value="{{ values.trip.destination }}" maxlength="3" required>
+    <label for="origin_{{ loop.index0 }}">Origin airport</label>
+    <input type="text" id="origin_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.trip.origin" value="{{ entry.trip.origin }}" maxlength="3" required>
+    {% for msg in errors.get('trips.' ~ loop.index0 ~ '.trip.origin', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+
+    <label for="destination_{{ loop.index0 }}">Destination airport</label>
+    <input type="text" id="destination_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.trip.destination" value="{{ entry.trip.destination }}" maxlength="3" required>
     <div class="hint">3-letter IATA code, e.g. NRT = Narita, HND = Haneda</div>
-    {% for msg in errors.get('trip.destination', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    {% for msg in errors.get('trips.' ~ loop.index0 ~ '.trip.destination', []) %}<div class="error">{{ msg }}</div>{% endfor %}
 
-    <label for="adults">Adults</label>
-    <input type="number" id="adults" name="trip.adults" value="{{ values.trip.adults }}" min="1" required>
-    {% for msg in errors.get('trip.adults', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    <label for="adults_{{ loop.index0 }}">Adults</label>
+    <input type="number" id="adults_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.trip.adults" value="{{ entry.trip.adults }}" min="1" required>
+    {% for msg in errors.get('trips.' ~ loop.index0 ~ '.trip.adults', []) %}<div class="error">{{ msg }}</div>{% endfor %}
 
-    <label for="cabin">Cabin</label>
-    <select id="cabin" name="trip.cabin">
+    <label for="cabin_{{ loop.index0 }}">Cabin</label>
+    <select id="cabin_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.trip.cabin">
       {% for choice in ['economy', 'premium_economy', 'business', 'first'] %}
-      <option value="{{ choice }}" {{ 'selected' if values.trip.cabin == choice else '' }}>{{ choice.replace('_', ' ') }}</option>
+      <option value="{{ choice }}" {{ 'selected' if entry.trip.cabin == choice else '' }}>{{ choice.replace('_', ' ') }}</option>
       {% endfor %}
     </select>
-    {% for msg in errors.get('trip.cabin', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    {% for msg in errors.get('trips.' ~ loop.index0 ~ '.trip.cabin', []) %}<div class="error">{{ msg }}</div>{% endfor %}
 
-    <label for="currency">Currency</label>
-    <input type="text" id="currency" name="trip.currency" value="{{ values.trip.currency }}" maxlength="3" required>
-    {% for msg in errors.get('trip.currency', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    <label for="currency_{{ loop.index0 }}">Currency</label>
+    <input type="text" id="currency_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.trip.currency" value="{{ entry.trip.currency }}" maxlength="3" required>
+    {% for msg in errors.get('trips.' ~ loop.index0 ~ '.trip.currency', []) %}<div class="error">{{ msg }}</div>{% endfor %}
 
     <div class="checkbox-row">
-      <input type="radio" id="mode_fixed" name="trip.mode" value="fixed" {{ 'checked' if values.trip.fixed.enabled else '' }}>
-      <label for="mode_fixed">Fixed dates</label>
+      <input type="radio" id="mode_fixed_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.mode" value="fixed" {{ 'checked' if entry.trip.fixed.enabled else '' }}>
+      <label for="mode_fixed_{{ loop.index0 }}">Fixed dates</label>
     </div>
-    <label for="depart_date">Depart date</label>
-    <input type="date" id="depart_date" name="trip.fixed.depart_date" value="{{ values.trip.fixed.depart_date }}">
-    <label for="return_date">Return date (blank for one-way)</label>
-    <input type="date" id="return_date" name="trip.fixed.return_date" value="{{ values.trip.fixed.return_date }}">
-    {% for msg in errors.get('trip.fixed.depart_date', []) %}<div class="error">{{ msg }}</div>{% endfor %}
-    {% for msg in errors.get('trip.fixed.return_date', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    <label for="depart_date_{{ loop.index0 }}">Depart date</label>
+    <input type="date" id="depart_date_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.trip.fixed.depart_date" value="{{ entry.trip.fixed.depart_date }}">
+    <label for="return_date_{{ loop.index0 }}">Return date (blank for one-way)</label>
+    <input type="date" id="return_date_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.trip.fixed.return_date" value="{{ entry.trip.fixed.return_date }}">
+    {% for msg in errors.get('trips.' ~ loop.index0 ~ '.trip.fixed.depart_date', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    {% for msg in errors.get('trips.' ~ loop.index0 ~ '.trip.fixed.return_date', []) %}<div class="error">{{ msg }}</div>{% endfor %}
 
     <div class="checkbox-row" style="margin-top:1rem;">
-      <input type="radio" id="mode_flexible" name="trip.mode" value="flexible" {{ 'checked' if values.trip.flexible.enabled else '' }}>
-      <label for="mode_flexible">Flexible window — cheapest trip departing any day in a range</label>
+      <input type="radio" id="mode_flexible_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.mode" value="flexible" {{ 'checked' if entry.trip.flexible.enabled else '' }}>
+      <label for="mode_flexible_{{ loop.index0 }}">Flexible window — cheapest trip departing any day in a range</label>
     </div>
-    <label for="earliest_depart">Earliest departure</label>
-    <input type="date" id="earliest_depart" name="trip.flexible.earliest_depart" value="{{ values.trip.flexible.earliest_depart }}">
-    <label for="latest_depart">Latest departure</label>
-    <input type="date" id="latest_depart" name="trip.flexible.latest_depart" value="{{ values.trip.flexible.latest_depart }}">
-    <label for="trip_length_days">Trip length (days)</label>
-    <input type="number" id="trip_length_days" name="trip.flexible.trip_length_days" value="{{ values.trip.flexible.trip_length_days }}" min="1">
-    <label for="scan_step_days">Scan every N days across the window</label>
-    <input type="number" id="scan_step_days" name="trip.flexible.scan_step_days" value="{{ values.trip.flexible.scan_step_days }}" min="1">
-    {% for msg in errors.get('trip.flexible.earliest_depart', []) %}<div class="error">{{ msg }}</div>{% endfor %}
-    {% for msg in errors.get('trip.flexible.latest_depart', []) %}<div class="error">{{ msg }}</div>{% endfor %}
-  </div>
+    <label for="earliest_depart_{{ loop.index0 }}">Earliest departure</label>
+    <input type="date" id="earliest_depart_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.trip.flexible.earliest_depart" value="{{ entry.trip.flexible.earliest_depart }}">
+    <label for="latest_depart_{{ loop.index0 }}">Latest departure</label>
+    <input type="date" id="latest_depart_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.trip.flexible.latest_depart" value="{{ entry.trip.flexible.latest_depart }}">
+    <label for="trip_length_days_{{ loop.index0 }}">Trip length (days)</label>
+    <input type="number" id="trip_length_days_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.trip.flexible.trip_length_days" value="{{ entry.trip.flexible.trip_length_days }}" min="1">
+    <label for="scan_step_days_{{ loop.index0 }}">Scan every N days across the window</label>
+    <input type="number" id="scan_step_days_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.trip.flexible.scan_step_days" value="{{ entry.trip.flexible.scan_step_days }}" min="1">
+    {% for msg in errors.get('trips.' ~ loop.index0 ~ '.trip.flexible.earliest_depart', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    {% for msg in errors.get('trips.' ~ loop.index0 ~ '.trip.flexible.latest_depart', []) %}<div class="error">{{ msg }}</div>{% endfor %}
 
-  <div class="card">
-    <h2>Alerts</h2>
-    <label for="threshold_price">Notify when price is at or below</label>
-    <input type="number" id="threshold_price" name="alerts.threshold_price" value="{{ values.alerts.threshold_price }}" step="1" min="0">
-    {% for msg in errors.get('alerts.threshold_price', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    <h3>Alerts for this trip</h3>
+    <label for="threshold_price_{{ loop.index0 }}">Notify when price is at or below</label>
+    <input type="number" id="threshold_price_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.alerts.threshold_price" value="{{ entry.alerts.threshold_price }}" step="1" min="0">
+    {% for msg in errors.get('trips.' ~ loop.index0 ~ '.alerts.threshold_price', []) %}<div class="error">{{ msg }}</div>{% endfor %}
 
-    <label for="drop_percent">Notify on a drop of at least (%)</label>
-    <input type="number" id="drop_percent" name="alerts.drop_percent" value="{{ values.alerts.drop_percent }}" step="1" min="0" max="100">
-    {% for msg in errors.get('alerts.drop_percent', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    <label for="drop_percent_{{ loop.index0 }}">Notify on a drop of at least (%)</label>
+    <input type="number" id="drop_percent_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.alerts.drop_percent" value="{{ entry.alerts.drop_percent }}" step="1" min="0" max="100">
+    {% for msg in errors.get('trips.' ~ loop.index0 ~ '.alerts.drop_percent', []) %}<div class="error">{{ msg }}</div>{% endfor %}
 
     <div class="checkbox-row">
-      <input type="checkbox" id="notify_on_new_low" name="alerts.notify_on_new_low" {{ 'checked' if values.alerts.notify_on_new_low else '' }}>
-      <label for="notify_on_new_low">Notify on a new all-time low</label>
+      <input type="checkbox" id="notify_on_new_low_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.alerts.notify_on_new_low" {{ 'checked' if entry.alerts.notify_on_new_low else '' }}>
+      <label for="notify_on_new_low_{{ loop.index0 }}">Notify on a new all-time low</label>
     </div>
 
-    <label for="cooldown_hours">Minimum hours between alerts</label>
-    <input type="number" id="cooldown_hours" name="alerts.cooldown_hours" value="{{ values.alerts.cooldown_hours }}" step="1" min="0">
-    {% for msg in errors.get('alerts.cooldown_hours', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+    <label for="cooldown_hours_{{ loop.index0 }}">Minimum hours between alerts</label>
+    <input type="number" id="cooldown_hours_{{ loop.index0 }}" name="trips.{{ loop.index0 }}.alerts.cooldown_hours" value="{{ entry.alerts.cooldown_hours }}" step="1" min="0">
+    {% for msg in errors.get('trips.' ~ loop.index0 ~ '.alerts.cooldown_hours', []) %}<div class="error">{{ msg }}</div>{% endfor %}
+  </div>
+  {% endfor %}
+
+  <div class="card">
+    <button type="submit" formaction="/settings/add-trip" formnovalidate class="secondary">Add another trip</button>
   </div>
 
   <div class="card">

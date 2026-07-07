@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 import pytest
 
 from skytracer.config import ConfigError, validate
@@ -7,10 +9,11 @@ from skytracer.config import ConfigError, validate
 
 def test_valid_config_passes(valid_raw_config: dict) -> None:
     result = validate(valid_raw_config)
-    assert result.config.trip.origin == "OKC"
-    assert result.config.trip.destination == "NRT"
-    assert result.config.trip.flexible.enabled is True
-    assert result.config.trip.fixed.enabled is False
+    trip = result.config.trips[0].trip
+    assert trip.origin == "OKC"
+    assert trip.destination == "NRT"
+    assert trip.flexible.enabled is True
+    assert trip.fixed.enabled is False
     # whatsapp selected but phone/apikey empty -> readiness warning, not an error
     assert any("whatsapp" in w for w in result.warnings)
     assert result.config.dashboard.top_n_fares == 5
@@ -65,23 +68,23 @@ def test_ai_telegram_token_without_allowed_id_warns(valid_raw_config: dict) -> N
 
 
 def test_bad_iata_code(valid_raw_config: dict) -> None:
-    valid_raw_config["trip"]["destination"] = "TOKYO"
+    valid_raw_config["trips"][0]["trip"]["destination"] = "TOKYO"
     with pytest.raises(ConfigError) as exc_info:
         validate(valid_raw_config)
     assert any("TOKYO" in msg for msg in exc_info.value.messages)
 
 
 def test_both_fixed_and_flexible_enabled(valid_raw_config: dict) -> None:
-    valid_raw_config["trip"]["fixed"]["enabled"] = True
-    valid_raw_config["trip"]["fixed"]["depart_date"] = "2026-10-01"
-    valid_raw_config["trip"]["flexible"]["enabled"] = True
+    valid_raw_config["trips"][0]["trip"]["fixed"]["enabled"] = True
+    valid_raw_config["trips"][0]["trip"]["fixed"]["depart_date"] = "2026-10-01"
+    valid_raw_config["trips"][0]["trip"]["flexible"]["enabled"] = True
     with pytest.raises(ConfigError) as exc_info:
         validate(valid_raw_config)
     assert any("exactly one" in msg for msg in exc_info.value.messages)
 
 
 def test_neither_fixed_nor_flexible_enabled(valid_raw_config: dict) -> None:
-    valid_raw_config["trip"]["flexible"]["enabled"] = False
+    valid_raw_config["trips"][0]["trip"]["flexible"]["enabled"] = False
     with pytest.raises(ConfigError) as exc_info:
         validate(valid_raw_config)
     assert any("exactly one" in msg for msg in exc_info.value.messages)
@@ -104,7 +107,7 @@ def test_enabled_source_with_key_is_fine(valid_raw_config: dict) -> None:
 
 
 def test_invalid_cabin_enum(valid_raw_config: dict) -> None:
-    valid_raw_config["trip"]["cabin"] = "coach"
+    valid_raw_config["trips"][0]["trip"]["cabin"] = "coach"
     with pytest.raises(ConfigError) as exc_info:
         validate(valid_raw_config)
     assert any("cabin" in msg for msg in exc_info.value.messages)
@@ -118,15 +121,32 @@ def test_invalid_notify_channel(valid_raw_config: dict) -> None:
 
 
 def test_flexible_window_dates_reversed(valid_raw_config: dict) -> None:
-    valid_raw_config["trip"]["flexible"]["earliest_depart"] = "2026-12-01"
-    valid_raw_config["trip"]["flexible"]["latest_depart"] = "2026-09-01"
+    valid_raw_config["trips"][0]["trip"]["flexible"]["earliest_depart"] = "2026-12-01"
+    valid_raw_config["trips"][0]["trip"]["flexible"]["latest_depart"] = "2026-09-01"
     with pytest.raises(ConfigError) as exc_info:
         validate(valid_raw_config)
     assert any("latest_depart" in msg for msg in exc_info.value.messages)
 
 
 def test_negative_threshold_price(valid_raw_config: dict) -> None:
-    valid_raw_config["alerts"]["threshold_price"] = -50
+    valid_raw_config["trips"][0]["alerts"]["threshold_price"] = -50
     with pytest.raises(ConfigError) as exc_info:
         validate(valid_raw_config)
     assert any("threshold_price" in msg for msg in exc_info.value.messages)
+
+
+def test_zero_trips_is_valid(valid_raw_config: dict) -> None:
+    valid_raw_config["trips"] = []
+    result = validate(valid_raw_config)
+    assert result.config.trips == []
+
+
+def test_errors_in_two_different_trips_are_both_reported(valid_raw_config: dict) -> None:
+    second_trip = copy.deepcopy(valid_raw_config["trips"][0])
+    second_trip["trip"]["destination"] = "TOKYO"
+    valid_raw_config["trips"][0]["trip"]["cabin"] = "coach"
+    valid_raw_config["trips"].append(second_trip)
+    with pytest.raises(ConfigError) as exc_info:
+        validate(valid_raw_config)
+    assert any("trips[0]" in msg and "cabin" in msg for msg in exc_info.value.messages)
+    assert any("trips[1]" in msg and "TOKYO" in msg for msg in exc_info.value.messages)

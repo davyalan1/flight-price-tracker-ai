@@ -9,27 +9,31 @@ import pytest
 REPO_ROOT = Path(__file__).parent.parent
 
 VALID_RAW_CONFIG: dict = {
-    "trip": {
-        "origin": "OKC",
-        "destination": "NRT",
-        "adults": 1,
-        "cabin": "economy",
-        "currency": "USD",
-        "fixed": {"enabled": False, "depart_date": "", "return_date": ""},
-        "flexible": {
-            "enabled": True,
-            "earliest_depart": "2026-09-01",
-            "latest_depart": "2026-11-30",
-            "trip_length_days": 10,
-            "scan_step_days": 3,
-        },
-    },
-    "alerts": {
-        "threshold_price": 900,
-        "drop_percent": 8,
-        "notify_on_new_low": True,
-        "cooldown_hours": 12,
-    },
+    "trips": [
+        {
+            "trip": {
+                "origin": "OKC",
+                "destination": "NRT",
+                "adults": 1,
+                "cabin": "economy",
+                "currency": "USD",
+                "fixed": {"enabled": False, "depart_date": "", "return_date": ""},
+                "flexible": {
+                    "enabled": True,
+                    "earliest_depart": "2026-09-01",
+                    "latest_depart": "2026-11-30",
+                    "trip_length_days": 10,
+                    "scan_step_days": 3,
+                },
+            },
+            "alerts": {
+                "threshold_price": 900,
+                "drop_percent": 8,
+                "notify_on_new_low": True,
+                "cooldown_hours": 12,
+            },
+        }
+    ],
     "schedule": {"every_hours": 6},
     "sources": {
         "google": {"enabled": True, "use_browser_fallback": True},

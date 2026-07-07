@@ -8,27 +8,31 @@
 # Editing this file after first boot has no effect on a running install.
 # It's kept around as a readable reference for what each setting means.
 
-[trip]
+# Skytracer can track multiple trips at once — add another [[trips]] block
+# to track a second route/date-window, each with its own alert rules. A
+# fresh install seeds exactly one, below.
+
+[[trips]]
 origin = "OKC"          # 3-letter IATA code, e.g. OKC = Will Rogers World (Oklahoma City)
 destination = "NRT"     # 3-letter IATA code, e.g. NRT = Narita, HND = Haneda
 adults = 1
 cabin = "economy"       # economy | premium_economy | business | first
 currency = "USD"        # 3-letter currency code
 
-# Exactly ONE of [trip.fixed] or [trip.flexible] should be enabled = true.
+# Exactly ONE of [trips.fixed] or [trips.flexible] should be enabled = true.
 
-[trip.fixed]
-# Tintin wants to be in Japan ~Dec 14 - Jan 8 (his friend is free as a tour
-# guide those dates) — a specific window, not "cheapest N-day trip anywhere
-# in a range", so this is modeled as fixed dates rather than flexible.
+[trips.fixed]
+# Example: a fixed trip window (both depart_date and return_date set), not
+# "cheapest N-day trip anywhere in a range" — this is modeled as fixed dates
+# rather than flexible.
 enabled = true
-depart_date = "2026-12-14"   # YYYY-MM-DD
-return_date = "2027-01-08"   # YYYY-MM-DD, leave blank for one-way
+depart_date = "2026-06-01"   # YYYY-MM-DD
+return_date = "2026-06-15"   # YYYY-MM-DD, leave blank for one-way
 
-[trip.flexible]
+[trips.flexible]
 # "cheapest 10-day trip departing any day in this window" — left here
 # (disabled) as a reference/fallback; flip enabled=true and disable
-# [trip.fixed] above to use this mode instead once Phase 7 (flexible-window
+# [trips.fixed] above to use this mode instead once Phase 7 (flexible-window
 # scanning) actually samples across the window rather than just its start.
 enabled = false
 earliest_depart = "2026-09-01"
@@ -36,7 +40,7 @@ latest_depart = "2026-11-30"
 trip_length_days = 10
 scan_step_days = 3      # sample every N days across the window to bound request count
 
-[alerts]
+[trips.alerts]
 threshold_price = 900   # notify when the cheapest fare is at or below this
 drop_percent = 8        # notify when price drops by at least this % since the last observation
 notify_on_new_low = true

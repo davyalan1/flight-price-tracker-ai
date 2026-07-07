@@ -66,6 +66,14 @@ class AlertsConfig:
 
 
 @dataclass
+class TripEntry:
+    """One tracked trip: a route/dates spec plus its own alert rules."""
+
+    trip: TripConfig
+    alerts: AlertsConfig
+
+
+@dataclass
 class ScheduleConfig:
     every_hours: float
 
@@ -192,8 +200,7 @@ class DbConfig:
 
 @dataclass
 class Config:
-    trip: TripConfig
-    alerts: AlertsConfig
+    trips: list[TripEntry]
     schedule: ScheduleConfig
     sources: SourcesConfig
     notify: NotifyConfig
@@ -221,46 +228,57 @@ def _iso_date(value: str, field: str, errors: list[str]) -> None:
         errors.append(f"'{field}' value '{value}' isn't a valid date (use YYYY-MM-DD).")
 
 
-def validate(raw: dict) -> ValidationResult:
-    errors: list[str] = []
-    warnings: list[str] = []
+def _validate_trip_entry(entry_raw: dict, index: int, errors: list[str]) -> TripEntry | None:
+    """One entry of raw.get("trips", []) -> a TripEntry, or None if it has any
+    errors (still appended to the caller's `errors` list with an index-
+    specific prefix so a user tracking several trips can tell which one has
+    the problem). Accepts both the flat `[[trips]]` TOML-seed shape (fields
+    directly on entry_raw) and the nested settings-store shape
+    (`{"trip": {...}, "alerts": {...}}`) — the latter is what every save from
+    the web Settings page actually produces.
+    """
+    entry_errors: list[str] = []
+    trip_raw = entry_raw.get("trip", entry_raw)
 
-    trip_raw = raw.get("trip", {})
     origin = str(trip_raw.get("origin", ""))
     destination = str(trip_raw.get("destination", ""))
     if not IATA_RE.match(origin):
-        errors.append(
-            f"'{origin}' isn't a 3-letter IATA airport code for trip.origin "
+        entry_errors.append(
+            f"trips[{index}].origin: '{origin}' isn't a 3-letter IATA airport code "
             "(e.g. OKC for Oklahoma City)."
         )
     if not IATA_RE.match(destination):
-        errors.append(
-            f"'{destination}' isn't a 3-letter IATA airport code for trip.destination "
+        entry_errors.append(
+            f"trips[{index}].destination: '{destination}' isn't a 3-letter IATA airport code "
             "(e.g. NRT for Narita, HND for Haneda)."
         )
 
     adults = trip_raw.get("adults", 1)
     if not isinstance(adults, int) or adults < 1:
-        errors.append(f"trip.adults must be a positive whole number, got '{adults}'.")
+        entry_errors.append(
+            f"trips[{index}].adults must be a positive whole number, got '{adults}'."
+        )
 
     cabin = str(trip_raw.get("cabin", ""))
     if cabin not in CABIN_CHOICES:
-        errors.append(
-            f"'{cabin}' isn't a valid trip.cabin — choose one of: "
+        entry_errors.append(
+            f"trips[{index}].cabin: '{cabin}' isn't valid — choose one of: "
             f"{', '.join(sorted(CABIN_CHOICES))}."
         )
 
     currency = str(trip_raw.get("currency", ""))
     if not CURRENCY_RE.match(currency):
-        errors.append(f"'{currency}' isn't a 3-letter currency code for trip.currency (e.g. USD).")
+        entry_errors.append(
+            f"trips[{index}].currency: '{currency}' isn't a 3-letter currency code (e.g. USD)."
+        )
 
     fixed_raw = trip_raw.get("fixed", {})
     flexible_raw = trip_raw.get("flexible", {})
     fixed_enabled = bool(fixed_raw.get("enabled", False))
     flexible_enabled = bool(flexible_raw.get("enabled", False))
     if fixed_enabled == flexible_enabled:
-        errors.append(
-            "Enable exactly one of trip.fixed or trip.flexible (currently "
+        entry_errors.append(
+            f"trips[{index}]: enable exactly one of fixed or flexible (currently "
             f"{'both' if fixed_enabled else 'neither'} enabled)."
         )
 
@@ -268,13 +286,17 @@ def validate(raw: dict) -> ValidationResult:
     return_date = str(fixed_raw.get("return_date", ""))
     if fixed_enabled:
         if not depart_date:
-            errors.append("trip.fixed.depart_date is required when trip.fixed is enabled.")
+            entry_errors.append(
+                f"trips[{index}].fixed.depart_date is required when fixed is enabled."
+            )
         else:
-            _iso_date(depart_date, "trip.fixed.depart_date", errors)
+            _iso_date(depart_date, f"trips[{index}].fixed.depart_date", entry_errors)
         if return_date:
-            _iso_date(return_date, "trip.fixed.return_date", errors)
-            if depart_date and return_date and not errors and return_date < depart_date:
-                errors.append("trip.fixed.return_date can't be before trip.fixed.depart_date.")
+            _iso_date(return_date, f"trips[{index}].fixed.return_date", entry_errors)
+            if depart_date and return_date and not entry_errors and return_date < depart_date:
+                entry_errors.append(
+                    f"trips[{index}].fixed.return_date can't be before depart_date."
+                )
 
     earliest_depart = str(flexible_raw.get("earliest_depart", ""))
     latest_depart = str(flexible_raw.get("latest_depart", ""))
@@ -282,50 +304,97 @@ def validate(raw: dict) -> ValidationResult:
     scan_step_days = flexible_raw.get("scan_step_days", 0)
     if flexible_enabled:
         if not earliest_depart:
-            errors.append(
-                "trip.flexible.earliest_depart is required when trip.flexible is enabled."
+            entry_errors.append(
+                f"trips[{index}].flexible.earliest_depart is required when flexible is enabled."
             )
         else:
-            _iso_date(earliest_depart, "trip.flexible.earliest_depart", errors)
+            _iso_date(earliest_depart, f"trips[{index}].flexible.earliest_depart", entry_errors)
         if not latest_depart:
-            errors.append(
-                "trip.flexible.latest_depart is required when trip.flexible is enabled."
+            entry_errors.append(
+                f"trips[{index}].flexible.latest_depart is required when flexible is enabled."
             )
         else:
-            _iso_date(latest_depart, "trip.flexible.latest_depart", errors)
+            _iso_date(latest_depart, f"trips[{index}].flexible.latest_depart", entry_errors)
         if (
             earliest_depart
             and latest_depart
-            and not errors
+            and not entry_errors
             and latest_depart < earliest_depart
         ):
-            errors.append(
-                "trip.flexible.latest_depart can't be before trip.flexible.earliest_depart."
+            entry_errors.append(
+                f"trips[{index}].flexible.latest_depart can't be before earliest_depart."
             )
         if not isinstance(trip_length_days, int) or trip_length_days < 1:
-            errors.append(
-                f"trip.flexible.trip_length_days must be a positive whole number, "
+            entry_errors.append(
+                f"trips[{index}].flexible.trip_length_days must be a positive whole number, "
                 f"got '{trip_length_days}'."
             )
         if not isinstance(scan_step_days, int) or scan_step_days < 1:
-            errors.append(
-                f"trip.flexible.scan_step_days must be a positive whole number, "
+            entry_errors.append(
+                f"trips[{index}].flexible.scan_step_days must be a positive whole number, "
                 f"got '{scan_step_days}'."
             )
 
-    alerts_raw = raw.get("alerts", {})
+    alerts_raw = entry_raw.get("alerts", {})
     threshold_price = alerts_raw.get("threshold_price", 0)
     drop_percent = alerts_raw.get("drop_percent", 0)
     cooldown_hours = alerts_raw.get("cooldown_hours", 0)
     notify_on_new_low = bool(alerts_raw.get("notify_on_new_low", True))
     if not isinstance(threshold_price, int | float) or threshold_price <= 0:
-        errors.append(f"alerts.threshold_price must be a positive number, got '{threshold_price}'.")
-    if not isinstance(drop_percent, int | float) or not (0 <= drop_percent <= 100):
-        errors.append(f"alerts.drop_percent must be between 0 and 100, got '{drop_percent}'.")
-    if not isinstance(cooldown_hours, int | float) or cooldown_hours < 0:
-        errors.append(
-            f"alerts.cooldown_hours must be zero or a positive number, got '{cooldown_hours}'."
+        entry_errors.append(
+            f"trips[{index}].alerts.threshold_price must be a positive number, "
+            f"got '{threshold_price}'."
         )
+    if not isinstance(drop_percent, int | float) or not (0 <= drop_percent <= 100):
+        entry_errors.append(
+            f"trips[{index}].alerts.drop_percent must be between 0 and 100, got '{drop_percent}'."
+        )
+    if not isinstance(cooldown_hours, int | float) or cooldown_hours < 0:
+        entry_errors.append(
+            f"trips[{index}].alerts.cooldown_hours must be zero or a positive number, "
+            f"got '{cooldown_hours}'."
+        )
+
+    errors.extend(entry_errors)
+    if entry_errors:
+        return None
+    return TripEntry(
+        trip=TripConfig(
+            origin=origin,
+            destination=destination,
+            adults=adults,
+            cabin=cabin,
+            currency=currency,
+            fixed=FixedTrip(
+                enabled=fixed_enabled, depart_date=depart_date, return_date=return_date
+            ),
+            flexible=FlexibleTrip(
+                enabled=flexible_enabled,
+                earliest_depart=earliest_depart,
+                latest_depart=latest_depart,
+                trip_length_days=trip_length_days,
+                scan_step_days=scan_step_days,
+            ),
+        ),
+        alerts=AlertsConfig(
+            threshold_price=threshold_price,
+            drop_percent=drop_percent,
+            notify_on_new_low=notify_on_new_low,
+            cooldown_hours=cooldown_hours,
+        ),
+    )
+
+
+def validate(raw: dict) -> ValidationResult:
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    trips_raw = raw.get("trips", [])
+    trips: list[TripEntry] = []
+    for i, entry_raw in enumerate(trips_raw):
+        entry = _validate_trip_entry(entry_raw, i, errors)
+        if entry is not None:
+            trips.append(entry)
 
     schedule_raw = raw.get("schedule", {})
     every_hours = schedule_raw.get("every_hours", 0)
@@ -500,29 +569,7 @@ def validate(raw: dict) -> ValidationResult:
         raise ConfigError(errors)
 
     config = Config(
-        trip=TripConfig(
-            origin=origin,
-            destination=destination,
-            adults=adults,
-            cabin=cabin,
-            currency=currency,
-            fixed=FixedTrip(
-                enabled=fixed_enabled, depart_date=depart_date, return_date=return_date
-            ),
-            flexible=FlexibleTrip(
-                enabled=flexible_enabled,
-                earliest_depart=earliest_depart,
-                latest_depart=latest_depart,
-                trip_length_days=trip_length_days,
-                scan_step_days=scan_step_days,
-            ),
-        ),
-        alerts=AlertsConfig(
-            threshold_price=threshold_price,
-            drop_percent=drop_percent,
-            notify_on_new_low=notify_on_new_low,
-            cooldown_hours=cooldown_hours,
-        ),
+        trips=trips,
         schedule=ScheduleConfig(every_hours=every_hours),
         sources=SourcesConfig(
             google=GoogleSourceConfig(
@@ -593,20 +640,25 @@ def build_config(raw: dict) -> Config:
     (it came from the settings table, which is seeded/edited through
     validated paths) and does no error checking.
     """
-    trip_raw = raw["trip"]
     sources_raw = raw["sources"]
     notify_raw = raw["notify"]
+    trips = [
+        TripEntry(
+            trip=TripConfig(
+                origin=t["trip"]["origin"],
+                destination=t["trip"]["destination"],
+                adults=t["trip"]["adults"],
+                cabin=t["trip"]["cabin"],
+                currency=t["trip"]["currency"],
+                fixed=FixedTrip(**t["trip"]["fixed"]),
+                flexible=FlexibleTrip(**t["trip"]["flexible"]),
+            ),
+            alerts=AlertsConfig(**t["alerts"]),
+        )
+        for t in raw["trips"]
+    ]
     return Config(
-        trip=TripConfig(
-            origin=trip_raw["origin"],
-            destination=trip_raw["destination"],
-            adults=trip_raw["adults"],
-            cabin=trip_raw["cabin"],
-            currency=trip_raw["currency"],
-            fixed=FixedTrip(**trip_raw["fixed"]),
-            flexible=FlexibleTrip(**trip_raw["flexible"]),
-        ),
-        alerts=AlertsConfig(**raw["alerts"]),
+        trips=trips,
         schedule=ScheduleConfig(**raw["schedule"]),
         sources=SourcesConfig(
             google=GoogleSourceConfig(**sources_raw["google"]),

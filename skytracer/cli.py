@@ -90,11 +90,17 @@ def test_notify() -> None:
     """Send a test notification through the configured channel."""
     conn = bootstrap()
     config = as_config(conn)
+    first_trip = config.trips[0].trip if config.trips else None
+    route = (
+        f"{first_trip.origin} → {first_trip.destination} (test)"
+        if first_trip
+        else "No trips configured (test)"
+    )
     alert = Alert(
         route_key="test",
-        route=f"{config.trip.origin} → {config.trip.destination} (test)",
+        route=route,
         price=999.0,
-        currency=config.trip.currency,
+        currency=first_trip.currency if first_trip else "USD",
         reasons=["test"],
         all_time_low=999.0,
         deep_link="https://www.google.com/travel/flights",

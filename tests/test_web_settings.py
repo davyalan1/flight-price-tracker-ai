@@ -8,19 +8,19 @@ import pytest
 from skytracer.web import routes_settings
 
 BASE_FORM = {
-    "trip.origin": "OKC",
-    "trip.destination": "NRT",
-    "trip.adults": "1",
-    "trip.cabin": "economy",
-    "trip.currency": "USD",
-    "trip.mode": "flexible",
-    "trip.flexible.earliest_depart": "2026-09-01",
-    "trip.flexible.latest_depart": "2026-11-30",
-    "trip.flexible.trip_length_days": "10",
-    "trip.flexible.scan_step_days": "3",
-    "alerts.threshold_price": "900",
-    "alerts.drop_percent": "8",
-    "alerts.cooldown_hours": "12",
+    "trips.0.trip.origin": "OKC",
+    "trips.0.trip.destination": "NRT",
+    "trips.0.trip.adults": "1",
+    "trips.0.trip.cabin": "economy",
+    "trips.0.trip.currency": "USD",
+    "trips.0.mode": "flexible",
+    "trips.0.trip.flexible.earliest_depart": "2026-09-01",
+    "trips.0.trip.flexible.latest_depart": "2026-11-30",
+    "trips.0.trip.flexible.trip_length_days": "10",
+    "trips.0.trip.flexible.scan_step_days": "3",
+    "trips.0.alerts.threshold_price": "900",
+    "trips.0.alerts.drop_percent": "8",
+    "trips.0.alerts.cooldown_hours": "12",
     "schedule.every_hours": "6",
     "sources.google.enabled": "on",
     "sources.google.use_browser_fallback": "on",
@@ -50,15 +50,16 @@ def test_save_valid_settings_persists_and_redirects(logged_in_client, tmp_path) 
     response = logged_in_client.post("/settings", data=BASE_FORM)
     assert response.status_code == 303
     assert _db_value(tmp_path / "skytracer.db", "notify.channel") == "ntfy"
-    assert _db_value(tmp_path / "skytracer.db", "trip.origin") == "OKC"
+    assert _db_value(tmp_path / "skytracer.db", "trips")[0]["trip"]["origin"] == "OKC"
 
 
 def test_save_invalid_settings_shows_inline_error(logged_in_client) -> None:
-    form = dict(BASE_FORM, **{"trip.destination": "TOKYO"})
+    form = dict(BASE_FORM, **{"trips.0.trip.destination": "TOKYO"})
     response = logged_in_client.post("/settings", data=form)
     assert response.status_code == 400
     # Jinja2 autoescapes the apostrophe in "isn't" to &#39; — match around it.
-    assert "3-letter IATA airport code for trip.destination" in response.text
+    assert "isn&#39;t a 3-letter IATA airport code" in response.text
+    assert "trips[0].destination" in response.text
     assert 'value="TOKYO"' in response.text  # rejected value stays in the form
 
 
@@ -169,6 +170,87 @@ def test_secret_is_never_echoed_in_response_html(logged_in_client) -> None:
     response = logged_in_client.get("/settings")
     assert "sekret123" not in response.text
     assert "leave blank to keep" in response.text
+
+
+def test_add_trip_appends_a_blank_card(logged_in_client, tmp_path) -> None:
+    logged_in_client.post("/settings", data=BASE_FORM)
+
+    response = logged_in_client.post("/settings/add-trip")
+    assert response.status_code == 303
+    assert response.headers["location"] == "/settings"
+
+    trips = _db_value(tmp_path / "skytracer.db", "trips")
+    assert len(trips) == 2
+    assert trips[0]["trip"]["origin"] == "OKC"  # untouched
+    assert trips[1]["trip"]["origin"] == ""  # blank, ready to fill in
+
+    page = logged_in_client.get("/settings")
+    assert "Trip 1" in page.text
+    assert "Trip 2" in page.text
+
+
+def test_remove_trip_deletes_the_right_index(logged_in_client, tmp_path) -> None:
+    logged_in_client.post("/settings", data=BASE_FORM)
+    logged_in_client.post("/settings/add-trip")
+
+    response = logged_in_client.post("/settings/remove-trip/0")
+    assert response.status_code == 303
+
+    trips = _db_value(tmp_path / "skytracer.db", "trips")
+    assert len(trips) == 1
+    assert trips[0]["trip"]["origin"] == ""  # the blank one that was index 1 is now index 0
+
+
+def test_remove_trip_out_of_range_is_a_no_op(logged_in_client, tmp_path) -> None:
+    logged_in_client.post("/settings", data=BASE_FORM)
+
+    response = logged_in_client.post("/settings/remove-trip/99")
+    assert response.status_code == 303
+
+    trips = _db_value(tmp_path / "skytracer.db", "trips")
+    assert len(trips) == 1
+
+
+def test_add_remove_trip_requires_login(web_client) -> None:
+    web_client.post(
+        "/setup", data={"password": "correcthorsebattery", "confirm": "correcthorsebattery"}
+    )
+    web_client.get("/logout")
+
+    add_response = web_client.post("/settings/add-trip")
+    assert add_response.status_code == 303
+    assert add_response.headers["location"] == "/login"
+
+    remove_response = web_client.post("/settings/remove-trip/0")
+    assert remove_response.status_code == 303
+    assert remove_response.headers["location"] == "/login"
+
+
+def test_multi_trip_save_keeps_both_trips_and_maps_errors_to_the_right_card(
+    logged_in_client, tmp_path
+) -> None:
+    logged_in_client.post("/settings/add-trip")
+    form = dict(
+        BASE_FORM,
+        **{
+            "trips.1.trip.origin": "DFW",
+            "trips.1.trip.destination": "TOKYO",  # deliberately invalid
+            "trips.1.trip.adults": "2",
+            "trips.1.trip.cabin": "business",
+            "trips.1.trip.currency": "USD",
+            "trips.1.mode": "fixed",
+            "trips.1.trip.fixed.depart_date": "2026-10-01",
+            "trips.1.trip.fixed.return_date": "2026-10-11",
+            "trips.1.alerts.threshold_price": "2000",
+            "trips.1.alerts.drop_percent": "5",
+            "trips.1.alerts.cooldown_hours": "6",
+        },
+    )
+    response = logged_in_client.post("/settings", data=form)
+    assert response.status_code == 400
+    assert "trips[1].destination" in response.text
+    assert 'value="OKC"' in response.text
+    assert 'value="TOKYO"' in response.text
 
 
 def test_settings_requires_login(web_client) -> None:
