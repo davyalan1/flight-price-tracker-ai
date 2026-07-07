@@ -101,7 +101,7 @@ twilio_from_number = ""
 
 [notify.ntfy]
 server = "https://ntfy.sh"
-topic = "tintin-flights"
+topic = "flight-alerts"
 
 [notify.discord]
 webhook_url = ""
